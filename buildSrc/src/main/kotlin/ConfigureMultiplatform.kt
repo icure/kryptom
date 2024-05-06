@@ -11,9 +11,9 @@ import java.util.Properties
  * Configures targets and source sets for multiplatform modules.
  */
 fun Project.configureMultiplatform(
-	kotlinMultiplatformExtension: KotlinMultiplatformExtension
+	kotlinMultiplatformExtension: KotlinMultiplatformExtension,
+	frameworkName: String = project.name.replaceFirstChar { it.uppercase() }
 ) = with(kotlinMultiplatformExtension) {
-	val frameworkName = project.name.replaceFirstChar { it.uppercase() }
 	val xcf = XCFramework(frameworkName)
 	jvm {
 		compilations.all {

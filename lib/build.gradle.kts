@@ -1,25 +1,28 @@
 
+import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
 plugins {
 	kotlinMultiplatform()
 	kotestMultiplatform()
 	androidLibrary()
+	id("org.jetbrains.dokka") version "1.9.20"
 	id("maven-publish")
-//	id("com.taktik.gradle.git-version") version "2.0.8-gb47b2d0e35"
+	signing
+	id("com.vanniktech.maven.publish") version "0.28.0"
 }
+
+group = "com.icure.kryptom"
 
 val repoUsername: String by project
 val repoPassword: String by project
 val mavenReleasesRepository: String by project
 
-//val gitVersion: String? by project
-
-project.version = "0.2.0"
+project.version = "1.0.0"
 
 @OptIn(ExperimentalKotlinGradlePluginApi::class)
 kotlin {
-	configureMultiplatform(this)
+	configureMultiplatform(this, "Kryptom")
 
 	compilerOptions {
 		freeCompilerArgs.add("-Xexpect-actual-classes")
@@ -78,24 +81,69 @@ android {
 
 configureJvmTest()
 
-publishing {
-	repositories {
-		mavenLocal()
-		maven {
-			name = "Taktik"
-			url = uri(mavenReleasesRepository)
-			credentials {
-				username = repoUsername
-				password = repoPassword
+if (project.hasProperty("signing.keyId") && project.hasProperty("signing.secretKeyRingFile") && project.hasProperty("signing.password")){
+	signing {
+		useInMemoryPgpKeys(
+			file(project.property("signing.secretKeyRingFile") as String).readText(),
+			project.property("signing.password") as String
+		)
+		sign(publishing.publications)
+	}
+} else {
+	throw IllegalStateException("Missing signing configuration")
+}
+
+val dokkaOutputDir = "${layout.buildDirectory}/dokka"
+
+tasks.dokkaHtml {
+	outputDirectory.set(file(dokkaOutputDir))
+}
+
+val dokkaJar by tasks.creating(Jar::class) {
+	group = JavaBasePlugin.DOCUMENTATION_GROUP
+	archiveClassifier.set("javadoc")
+	from(tasks.dokkaHtml)
+}
+
+mavenPublishing {
+	coordinates(group as String, rootProject.name, project.version as String)
+
+	pom {
+		name.set("Kryptom")
+		description.set("""
+			Provides access from kotlin multiplatform to:
+
+			- Native cryptographic primitives and digest algorithms including:
+				- Secure random
+				- Aes encryption
+				- Rsa encryption and signing
+				- Hmac signing
+			- Byte array encoding and decoding (hex, base64)
+		""".trimIndent())
+		url.set("https://github.com/icure/kryptom")
+
+		licenses {
+			license {
+				name.set("MIT License")
+				url.set("https://choosealicense.com/licenses/mit/")
+				distribution.set("https://choosealicense.com/licenses/mit/")
 			}
 		}
-
-		mavenCentral {
-			name = "MavenCentral"
-			credentials {
-				username = properties["mavenCentralUsername"]?.let { it as String } ?: ""
-				password = properties["mavenCentralPassword"]?.let { it as String } ?: ""
+		developers {
+			developer {
+				id.set("icure")
+				name.set("iCure")
+				url.set("https://github.com/iCure/")
 			}
+		}
+		scm {
+			url.set("https://github.com/icure/kryptom")
+			connection.set("scm:git:git://github.com/icure/kryptom.git")
+			developerConnection.set("scm:git:ssh://git@github.com:icure/kryptom.git")
 		}
 	}
+
+	publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+
+	signAllPublications()
 }
