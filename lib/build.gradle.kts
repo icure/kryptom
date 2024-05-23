@@ -1,4 +1,3 @@
-
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
@@ -6,7 +5,6 @@ plugins {
 	kotlinMultiplatform()
 	kotestMultiplatform()
 	androidLibrary()
-	id("org.jetbrains.dokka") version "1.9.20"
 	id("maven-publish")
 	signing
 	id("com.vanniktech.maven.publish") version "0.28.0"
@@ -81,7 +79,10 @@ android {
 
 configureJvmTest()
 
-if (project.hasProperty("signing.keyId") && project.hasProperty("signing.secretKeyRingFile") && project.hasProperty("signing.password")){
+fun projectHasSignatureProperties() =
+	project.hasProperty("signing.keyId") && project.hasProperty("signing.secretKeyRingFile") && project.hasProperty("signing.password")
+
+if (projectHasSignatureProperties()) {
 	signing {
 		useInMemoryPgpKeys(
 			file(project.property("signing.secretKeyRingFile") as String).readText(),
@@ -89,20 +90,6 @@ if (project.hasProperty("signing.keyId") && project.hasProperty("signing.secretK
 		)
 		sign(publishing.publications)
 	}
-} else {
-	throw IllegalStateException("Missing signing configuration")
-}
-
-val dokkaOutputDir = "${layout.buildDirectory}/dokka"
-
-tasks.dokkaHtml {
-	outputDirectory.set(file(dokkaOutputDir))
-}
-
-val dokkaJar by tasks.creating(Jar::class) {
-	group = JavaBasePlugin.DOCUMENTATION_GROUP
-	archiveClassifier.set("javadoc")
-	from(tasks.dokkaHtml)
 }
 
 mavenPublishing {
@@ -145,5 +132,16 @@ mavenPublishing {
 
 	publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
 
-	signAllPublications()
+	if (projectHasSignatureProperties()) {
+		signAllPublications()
+	}
+}
+
+// Configure all publishing tasks
+if (!projectHasSignatureProperties()) {
+	tasks.withType<PublishToMavenRepository> {
+		doFirst {
+			throw IllegalStateException("Cannot publish to Maven Central without signing properties")
+		}
+	}
 }
