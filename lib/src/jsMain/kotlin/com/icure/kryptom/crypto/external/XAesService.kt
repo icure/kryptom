@@ -69,11 +69,11 @@ data class XAesKey(
 	val algorithm: String
 )
 
-internal fun <A : AesAlgorithm> XAesKey.toKryptom(algorithm: A): AesKey<A> {
+fun <A : AesAlgorithm> XAesKey.toKryptom(algorithm: A): AesKey<A> {
 	if (this.algorithm != algorithm.identifier) {
 		throw AssertionError("Algorithm mismatch: ${this.algorithm} != ${algorithm.identifier}")
 	}
 	return AesKey(key, algorithm)
 }
 
-internal fun AesKey<*>.toExternal(): XAesKey = XAesKey(cryptoKey, algorithm.identifier)
+fun AesKey<*>.toExternal(): XAesKey = XAesKey(cryptoKey, algorithm.identifier)

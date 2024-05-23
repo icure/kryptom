@@ -42,11 +42,11 @@ data class XHmacKey(
 	val algorithm: String
 )
 
-internal fun <A : HmacAlgorithm> XHmacKey.toKryptom(algorithm: A): HmacKey<A> {
+fun <A : HmacAlgorithm> XHmacKey.toKryptom(algorithm: A): HmacKey<A> {
 	if (this.algorithm != algorithm.identifier) {
 		throw AssertionError("Algorithm mismatch: ${this.algorithm} != ${algorithm.identifier}")
 	}
 	return HmacKey(key, algorithm)
 }
 
-internal fun HmacKey<*>.toExternal(): XHmacKey = XHmacKey(key, algorithm.identifier)
+fun HmacKey<*>.toExternal(): XHmacKey = XHmacKey(key, algorithm.identifier)

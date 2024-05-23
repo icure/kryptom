@@ -96,11 +96,11 @@ data class XRsaKeypair(
 	}
 }
 
-internal fun <A : RsaAlgorithm> XRsaKeypair.toKryptom(algorithm: A): RsaKeypair<A> {
+fun <A : RsaAlgorithm> XRsaKeypair.toKryptom(algorithm: A): RsaKeypair<A> {
 	return RsaKeypair(private.toKryptom(algorithm), public.toKryptom(algorithm))
 }
 
-internal fun RsaKeypair<*>.toExternal(): XRsaKeypair = XRsaKeypair(private.toExternal(), public.toExternal())
+fun RsaKeypair<*>.toExternal(): XRsaKeypair = XRsaKeypair(private.toExternal(), public.toExternal())
 
 @JsExport
 data class XPrivateRsaKey(
@@ -108,14 +108,14 @@ data class XPrivateRsaKey(
 	val algorithm: String
 )
 
-internal fun <A : RsaAlgorithm> XPrivateRsaKey.toKryptom(algorithm: A): PrivateRsaKey<A> {
+fun <A : RsaAlgorithm> XPrivateRsaKey.toKryptom(algorithm: A): PrivateRsaKey<A> {
 	if (this.algorithm != algorithm.identifier) {
 		throw AssertionError("Algorithm mismatch: ${this.algorithm} != ${algorithm.identifier}")
 	}
 	return PrivateRsaKey(key, algorithm)
 }
 
-internal fun PrivateRsaKey<*>.toExternal(): XPrivateRsaKey = XPrivateRsaKey(key, algorithm.identifier)
+fun PrivateRsaKey<*>.toExternal(): XPrivateRsaKey = XPrivateRsaKey(key, algorithm.identifier)
 
 @JsExport
 data class XPublicRsaKey(
@@ -123,11 +123,11 @@ data class XPublicRsaKey(
 	val algorithm: String
 )
 
-internal fun <A : RsaAlgorithm> XPublicRsaKey.toKryptom(algorithm: A): PublicRsaKey<A> {
+fun <A : RsaAlgorithm> XPublicRsaKey.toKryptom(algorithm: A): PublicRsaKey<A> {
 	if (this.algorithm != algorithm.identifier) {
 		throw AssertionError("Algorithm mismatch: ${this.algorithm} != ${algorithm.identifier}")
 	}
 	return PublicRsaKey(key, algorithm)
 }
 
-internal fun PublicRsaKey<*>.toExternal(): XPublicRsaKey = XPublicRsaKey(key, algorithm.identifier)
+fun PublicRsaKey<*>.toExternal(): XPublicRsaKey = XPublicRsaKey(key, algorithm.identifier)
