@@ -137,6 +137,10 @@ mavenPublishing {
 	}
 }
 
+rootProject.plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class.java) {
+	rootProject.the<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>().nodeVersion = "20.13.1"
+}
+
 // Configure all publishing tasks
 if (!projectHasSignatureProperties()) {
 	tasks.withType<PublishToMavenRepository> {

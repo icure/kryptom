@@ -6,16 +6,32 @@ import kotlin.js.Json
 import kotlin.js.Promise
 
 /**
- * Implementation from
+ * Implementation based on
  * [ktor](https://github.com/ktorio/ktor/blob/8efb61fcc2/ktor-utils/js/src/io/ktor/util/CryptoJs.kt#L47)
  * Global instance of [Crypto].
  */
 internal val jsCrypto: Crypto by lazy {
-	if (PlatformUtils.IS_NODE) {
-		js("eval('require')('crypto').webcrypto")
+	val loaded = if (PlatformUtils.IS_NODE) {
+		//language=JavaScript
+		js("""
+			typeof crypto != 'undefined' 
+				? crypto
+				: typeof require != 'undefined'
+					? eval('require')('crypto')
+					: undefined
+		""")
 	} else {
+		//language=JavaScript
 		js("(window ? (window.crypto ? window.crypto : window.msCrypto) : self.crypto)")
 	}
+	if (loaded == null) {
+		throw IllegalStateException("""
+			Js crypto is not available.
+			To use kryptom with node and ES modules you need to use node 19 or later.
+			To use kryptom in expo / react native use the @icure/expo-kryptom npm package.
+		""".trimIndent())
+	}
+	loaded
 }
 
 /**
