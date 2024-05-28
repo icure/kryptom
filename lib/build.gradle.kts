@@ -16,7 +16,7 @@ val repoUsername: String by project
 val repoPassword: String by project
 val mavenReleasesRepository: String by project
 
-project.version = "1.0.1"
+project.version = "1.0.2"
 
 @OptIn(ExperimentalKotlinGradlePluginApi::class)
 kotlin {
