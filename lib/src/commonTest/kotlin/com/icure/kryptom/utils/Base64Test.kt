@@ -64,4 +64,12 @@ class Base64Test : StringSpec({
 		base64UrlEncode(data) shouldBe expectedEncoded
 		base64UrlDecode(expectedEncoded).toList() shouldBe data.toList()
 	}
+
+	"Empty base 64 string should be decoded to an empty byte array" {
+		base64Decode("") shouldBe ByteArray(0)
+	}
+
+	"Empty byte array should be encoded to an empty base 64 string" {
+		base64Encode(ByteArray(0)) shouldBe ""
+	}
 })

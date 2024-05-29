@@ -106,6 +106,10 @@ private fun encodeBase64(data: ByteArray, alphabet: String): String {
 }
 
 private fun decodeBase64(input: String, lookupTable: IntArray): ByteArray {
+	if (input.isEmpty()) {
+		return byteArrayOf()
+	}
+
 	val unpaddedData = if (input[input.length - 1] == BASE64_PAD) {
 		require(input.length % 4 == 0) { "Invalid padded base64 string length: ${input.length}" }
 		require(input[input.length - 3] != BASE64_PAD) { "Too much padding" }
