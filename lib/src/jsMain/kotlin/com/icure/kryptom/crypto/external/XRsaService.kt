@@ -87,26 +87,28 @@ external interface XRsaService {
 }
 
 @JsExport
-data class XRsaKeypair(
-	val private: XPrivateRsaKey,
+external interface XRsaKeypair {
+	val private: XPrivateRsaKey
 	val public: XPublicRsaKey
-) {
-	init {
-		require(private.algorithm == public.algorithm) { "Private and public key must have the same algorithm." }
-	}
 }
 
 fun <A : RsaAlgorithm> XRsaKeypair.toKryptom(algorithm: A): RsaKeypair<A> {
 	return RsaKeypair(private.toKryptom(algorithm), public.toKryptom(algorithm))
 }
 
-fun RsaKeypair<*>.toExternal(): XRsaKeypair = XRsaKeypair(private.toExternal(), public.toExternal())
+// TODO switch to @JsPlainObject on kotlin 2
+@Suppress("UNUSED_VARIABLE")
+fun RsaKeypair<*>.toExternal(): XRsaKeypair {
+	val private = this.private.toExternal()
+	val public = this.public.toExternal()
+	return js("({private: private, public: public})")
+}
 
 @JsExport
-data class XPrivateRsaKey(
-	val key: dynamic,
+external interface XPrivateRsaKey {
+	val key: dynamic
 	val algorithm: String
-)
+}
 
 fun <A : RsaAlgorithm> XPrivateRsaKey.toKryptom(algorithm: A): PrivateRsaKey<A> {
 	if (this.algorithm != algorithm.identifier) {
@@ -115,13 +117,19 @@ fun <A : RsaAlgorithm> XPrivateRsaKey.toKryptom(algorithm: A): PrivateRsaKey<A> 
 	return PrivateRsaKey(key, algorithm)
 }
 
-fun PrivateRsaKey<*>.toExternal(): XPrivateRsaKey = XPrivateRsaKey(key, algorithm.identifier)
+// TODO switch to @JsPlainObject on kotlin 2
+@Suppress("UNUSED_VARIABLE")
+fun PrivateRsaKey<*>.toExternal(): XPrivateRsaKey {
+	val algorithmIdentifier = this.algorithm.identifier
+	val thisKey = this.key
+	return js("({key: thisKey, algorithm: algorithmIdentifier})")
+}
 
 @JsExport
-data class XPublicRsaKey(
-	val key: dynamic,
+external interface XPublicRsaKey {
+	val key: dynamic
 	val algorithm: String
-)
+}
 
 fun <A : RsaAlgorithm> XPublicRsaKey.toKryptom(algorithm: A): PublicRsaKey<A> {
 	if (this.algorithm != algorithm.identifier) {
@@ -130,4 +138,10 @@ fun <A : RsaAlgorithm> XPublicRsaKey.toKryptom(algorithm: A): PublicRsaKey<A> {
 	return PublicRsaKey(key, algorithm)
 }
 
-fun PublicRsaKey<*>.toExternal(): XPublicRsaKey = XPublicRsaKey(key, algorithm.identifier)
+// TODO switch to @JsPlainObject on kotlin 2
+@Suppress("UNUSED_VARIABLE")
+fun PublicRsaKey<*>.toExternal(): XPublicRsaKey {
+	val algorithmIdentifier = this.algorithm.identifier
+	val thisKey = this.key
+	return js("({key: thisKey, algorithm: algorithmIdentifier})")
+}

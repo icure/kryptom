@@ -64,10 +64,10 @@ external interface XAesService {
 }
 
 @JsExport
-data class XAesKey(
-	val key: dynamic,
+external interface XAesKey {
+	val key: dynamic
 	val algorithm: String
-)
+}
 
 fun <A : AesAlgorithm> XAesKey.toKryptom(algorithm: A): AesKey<A> {
 	if (this.algorithm != algorithm.identifier) {
@@ -76,4 +76,10 @@ fun <A : AesAlgorithm> XAesKey.toKryptom(algorithm: A): AesKey<A> {
 	return AesKey(key, algorithm)
 }
 
-fun AesKey<*>.toExternal(): XAesKey = XAesKey(cryptoKey, algorithm.identifier)
+// TODO switch to @JsPlainObject on kotlin 2
+@Suppress("UNUSED_VARIABLE")
+fun AesKey<*>.toExternal(): XAesKey {
+	val thisKey = this.cryptoKey
+	val algorithmIdentifier = this.algorithm.identifier
+	return js("({key: thisKey, algorithm: algorithmIdentifier})")
+}

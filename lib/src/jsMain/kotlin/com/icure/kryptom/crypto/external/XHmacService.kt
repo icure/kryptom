@@ -37,10 +37,10 @@ external interface XHmacService {
 }
 
 @JsExport
-data class XHmacKey(
-	val key: dynamic,
+external interface XHmacKey {
+	val key: dynamic
 	val algorithm: String
-)
+}
 
 fun <A : HmacAlgorithm> XHmacKey.toKryptom(algorithm: A): HmacKey<A> {
 	if (this.algorithm != algorithm.identifier) {
@@ -49,4 +49,10 @@ fun <A : HmacAlgorithm> XHmacKey.toKryptom(algorithm: A): HmacKey<A> {
 	return HmacKey(key, algorithm)
 }
 
-fun HmacKey<*>.toExternal(): XHmacKey = XHmacKey(key, algorithm.identifier)
+// TODO switch to @JsPlainObject on kotlin 2
+@Suppress("UNUSED_VARIABLE")
+fun HmacKey<*>.toExternal(): XHmacKey {
+	val thisKey = this.key
+	val algorithmIdentifier = this.algorithm.identifier
+	return js("({key: thisKey, algorithm: algorithmIdentifier})")
+}
