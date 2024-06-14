@@ -22,6 +22,22 @@ project.version = "1.0.4"
 kotlin {
 	configureMultiplatform(this, "Kryptom")
 
+	linuxX64 {
+		compilations.getByName("main") {    // NL
+			cinterops {
+				val libcrypto by creating {
+					defFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
+					includeDirs.allHeaders("/opt/homebrew/Cellar/openssl@3/3.3.0/include")
+				}
+			}
+			binaries {
+				executable {
+					entryPoint = "main"
+				}
+			}
+		}
+	}
+
 	compilerOptions {
 		freeCompilerArgs.add("-Xexpect-actual-classes")
 	}

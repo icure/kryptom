@@ -1,0 +1,5 @@
+headers = \
+ openssl/aes.h \
+ openssl/rsa.h
+headerFilter = openssl/*
+linkerOpts.linux = -lcrypto
