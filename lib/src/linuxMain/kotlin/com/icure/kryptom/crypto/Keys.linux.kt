@@ -24,7 +24,7 @@ actual class AesKey<out A : AesAlgorithm>(
 	actual val algorithm: A
 )
 
-actual class HmacKey<out A : HmacAlgorithm> {
+actual class HmacKey<out A : HmacAlgorithm>(
+	val rawKey: ByteArray,
 	actual val algorithm: A
-		get() = TODO("Not yet implemented")
-}
+)

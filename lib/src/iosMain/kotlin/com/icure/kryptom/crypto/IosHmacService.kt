@@ -20,7 +20,10 @@ object IosHmacService : HmacService {
 		return HmacKey(bytes.copyOf(), algorithm)
 	}
 
-	override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray =
+	override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray {
+		require(key.algorithm == HmacAlgorithm.HmacSha512) {
+			"Unsupported hmac algorithm: ${key.algorithm}"
+		}
 		memScoped {
 			val out = allocArray<UByteVar>(key.algorithm.digestSize)
 			CCHmac(
@@ -33,6 +36,7 @@ object IosHmacService : HmacService {
 			)
 			out.readBytes(key.algorithm.digestSize)
 		}
+	}
 
 	override suspend fun verify(
 		signature: ByteArray,
