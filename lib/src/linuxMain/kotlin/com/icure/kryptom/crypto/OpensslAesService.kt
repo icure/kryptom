@@ -4,7 +4,7 @@ import com.icure.kryptom.crypto.AesService.Companion.IV_BYTE_LENGTH
 import com.icure.kryptom.crypto.AesService.Companion.aesEncryptedSizeFor
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
-import com.icure.kryptom.utils.toHexString
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
@@ -12,7 +12,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
-import libcrypto.EVP_CIPHER_CTX
+import libcrypto.EVP_CIPHER
 import libcrypto.EVP_CIPHER_CTX_free
 import libcrypto.EVP_CIPHER_CTX_new
 import libcrypto.EVP_DecryptFinal_ex
@@ -21,6 +21,7 @@ import libcrypto.EVP_DecryptUpdate
 import libcrypto.EVP_EncryptFinal_ex
 import libcrypto.EVP_EncryptInit_ex
 import libcrypto.EVP_EncryptUpdate
+import libcrypto.EVP_aes_128_cbc
 import libcrypto.EVP_aes_256_cbc
 
 @OptIn(ExperimentalForeignApi::class)
@@ -41,6 +42,13 @@ object OpensslAesService : AesService {
         )
 
     override suspend fun encrypt(data: ByteArray, key: AesKey<*>, iv: ByteArray?): ByteArray {
+        require (key.algorithm == AesAlgorithm.CbcWithPkcs7Padding) {
+            "Unsupported aes algorithm: ${key.algorithm}"
+        }
+        if (iv != null) require(iv.size == IV_BYTE_LENGTH) {
+            "Initialization vector must be $IV_BYTE_LENGTH bytes long (got ${iv.size})."
+        }
+        val cipher = validateKeyAndGetCipher(key)
         val ctx = EVP_CIPHER_CTX_new() ?: throw PlatformMethodException("Could not initialise context", null)
         val pinnedData = data.asUByteArray().pin()
         val rawKey = key.rawKey.asUByteArray().pin()
@@ -54,7 +62,7 @@ object OpensslAesService : AesService {
             try {
                 EVP_EncryptInit_ex(
                     ctx,
-                    EVP_aes_256_cbc(),
+                    cipher,
                     null,
                     rawKey.addressOf(0),
                     initialisedIv.addressOf(0),
@@ -88,6 +96,10 @@ object OpensslAesService : AesService {
     }
 
     override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
+        require (key.algorithm == AesAlgorithm.CbcWithPkcs7Padding) {
+            "Unsupported aes algorithm: ${key.algorithm}"
+        }
+        val cipher = validateKeyAndGetCipher(key)
         val ctx = EVP_CIPHER_CTX_new() ?: throw PlatformMethodException("Could not initialise context", null)
         val pinnedInput = ivAndEncryptedData.asUByteArray().pin()
         val rawKey = key.rawKey.asUByteArray().pin()
@@ -100,7 +112,7 @@ object OpensslAesService : AesService {
             try {
                 EVP_DecryptInit_ex(
                     ctx,
-                    EVP_aes_256_cbc(),
+                    cipher,
                     null,
                     rawKey.addressOf(0),
                     pinnedInput.addressOf(0),
@@ -130,4 +142,12 @@ object OpensslAesService : AesService {
             }
         }
     }
+
+    private fun validateKeyAndGetCipher(key: AesKey<*>): CPointer<EVP_CIPHER> = checkNotNull(
+        when (key.rawKey.size) {
+            AesService.KeySize.Aes128.byteSize -> EVP_aes_128_cbc()
+            AesService.KeySize.Aes256.byteSize -> EVP_aes_256_cbc()
+            else -> throw IllegalArgumentException("Invalid size for key: ${key.rawKey.size}")
+        }
+    ) { "EVP cipher is null" }
 }
