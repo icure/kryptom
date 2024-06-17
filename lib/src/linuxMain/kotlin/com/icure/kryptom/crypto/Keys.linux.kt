@@ -3,18 +3,19 @@ package com.icure.kryptom.crypto
 /**
  * Represents a private rsa key. Each key should be used only for a specific algorithm, which is represented by [A].
  */
-actual class PrivateRsaKey<out A : RsaAlgorithm> : RsaKey {
+actual class PrivateRsaKey<out A : RsaAlgorithm>(
+	val pemPkcs8Key: String,
 	actual val algorithm: A
-		get() = TODO("Not yet implemented")
-}
+) : RsaKey
+
 
 /**
  * Represents a public rsa key. Each key should be used only for a specific algorithm, which is represented by [A].
  */
-actual class PublicRsaKey<out A : RsaAlgorithm> : RsaKey {
+actual class PublicRsaKey<out A : RsaAlgorithm>(
+	val pemSpkiKey: String,
 	actual val algorithm: A
-		get() = TODO("Not yet implemented")
-}
+) : RsaKey
 
 /**
  * Represents an aes key.

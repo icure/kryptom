@@ -5,6 +5,7 @@ headers = \
     openssl/rand.h \
     openssl/sha.h \
     openssl/evp.h \
+    openssl/pem.h \
     openssl/err.h
 # headerFilter = openssl/*
 compilerOpts = -I/usr/include
