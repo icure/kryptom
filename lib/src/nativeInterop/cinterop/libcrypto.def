@@ -1,5 +1,9 @@
 headers = \
     openssl/aes.h \
+    openssl/hmac.h \
+    openssl/rsa.h \
+    openssl/rand.h \
+    openssl/sha.h \
     openssl/evp.h \
     openssl/err.h
 # headerFilter = openssl/*

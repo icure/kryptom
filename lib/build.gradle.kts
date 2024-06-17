@@ -1,5 +1,7 @@
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import java.util.Properties
 
 plugins {
 	kotlinMultiplatform()
@@ -20,13 +22,60 @@ project.version = "1.0.4"
 
 @OptIn(ExperimentalKotlinGradlePluginApi::class)
 kotlin {
-	configureMultiplatform(this, "Kryptom")
+	val frameworkName = "Kryptom"
+	val xcf = XCFramework(frameworkName)
+	jvm {
+		compilations.all {
+			kotlinOptions.jvmTarget = "1.8"
+		}
+	}
+	js(IR) {
+		browser {
+			testTask {
+				useKarma {
+					useChromeHeadless()
+					useFirefoxHeadless()
+				}
+			}
+		}
+		nodejs { }
+		binaries.library()
+		generateTypeScriptDefinitions()
+	}
+	androidTarget {
+		compilations.all {
+			kotlinOptions.jvmTarget = "1.8"
+		}
+		// Important: otherwise android will use the jvm library and it will not work...
+		publishLibraryVariants("release", "debug")
+	}
+	val iosSimulators = listOf(
+		iosX64(),
+		iosSimulatorArm64()
+	)
+	val iosAll = iosSimulators + iosArm64()
+	iosAll.forEach { target ->
+		target.binaries.framework {
+			baseName = frameworkName
+			xcf.add(this)
+		}
+	}
+	val localProperties = Properties().apply {
+		kotlin.runCatching {
+			load(rootProject.file("local.properties").reader())
+		}
+	}
+	iosSimulators.forEach { target ->
+		target.testRuns.forEach { testRun ->
+			(localProperties["ios.simulator"] as? String)?.let { testRun.deviceId = it }
+		}
+	}
 
 	linuxX64 {
-		compilations.getByName("main") {    // NL
+		compilations.getByName("main") {
 			cinterops {
 				val libcrypto by creating {
-					defFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
+					definitionFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
 				}
 			}
 		}
@@ -36,6 +85,26 @@ kotlin {
 				freeCompilerArgs += listOf("-linker-option", "--allow-shlib-undefined")
 			}
 		}
+	}
+
+	linuxArm64 {
+		compilations.getByName("main") {
+			cinterops {
+				val libcrypto by creating {
+					definitionFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
+				}
+			}
+		}
+	}
+	applyDefaultHierarchyTemplate()
+
+	with(sourceSets) {
+		val commonMain = get("commonMain")
+		val jvmAndAndroidMain = create("jvmAndAndroidMain").apply {
+			dependsOn(commonMain)
+		}
+		get("jvmMain").dependsOn(jvmAndAndroidMain)
+		get("androidMain").dependsOn(jvmAndAndroidMain)
 	}
 
 	compilerOptions {

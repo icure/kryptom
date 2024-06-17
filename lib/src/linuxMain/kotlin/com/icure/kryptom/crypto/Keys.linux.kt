@@ -19,10 +19,10 @@ actual class PublicRsaKey<out A : RsaAlgorithm> : RsaKey {
 /**
  * Represents an aes key.
  */
-actual class AesKey<out A : AesAlgorithm> {
+actual class AesKey<out A : AesAlgorithm>(
+	val rawKey: ByteArray,
 	actual val algorithm: A
-		get() = TODO("Not yet implemented")
-}
+)
 
 actual class HmacKey<out A : HmacAlgorithm> {
 	actual val algorithm: A
