@@ -1,5 +1,10 @@
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCompilation
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
+import java.util.Properties
 
 plugins {
 	kotlinMultiplatform()
@@ -18,9 +23,92 @@ val mavenReleasesRepository: String by project
 
 project.version = "1.0.4"
 
+val localProperties = Properties().apply {
+	kotlin.runCatching {
+		load(rootProject.file("local.properties").reader())
+	}
+}
+
 @OptIn(ExperimentalKotlinGradlePluginApi::class)
 kotlin {
-	configureMultiplatform(this, "Kryptom")
+	val frameworkName = "Kryptom"
+	val xcf = XCFramework(frameworkName)
+	jvm {
+		compilerOptions {
+			jvmTarget.set(JvmTarget.JVM_1_8)
+		}
+	}
+	js(IR) {
+		browser {
+			testTask {
+				useKarma {
+					useChromeHeadless()
+					useFirefoxHeadless()
+				}
+			}
+		}
+		nodejs { }
+		binaries.library()
+		generateTypeScriptDefinitions()
+	}
+	androidTarget {
+		compilerOptions {
+			jvmTarget.set(JvmTarget.JVM_1_8)
+		}
+		// Important: otherwise android will use the jvm library and it will not work...
+		publishLibraryVariants("release", "debug")
+	}
+	val iosSimulators = listOf(
+		iosX64(),
+		iosSimulatorArm64()
+	)
+	val iosAll = iosSimulators + iosArm64()
+	iosAll.forEach { target ->
+		target.binaries.framework {
+			baseName = frameworkName
+			xcf.add(this)
+		}
+	}
+	iosSimulators.forEach { target ->
+		target.testRuns.forEach { testRun ->
+			(localProperties["ios.simulator"] as? String)?.let { testRun.deviceId = it }
+		}
+	}
+	val linux64Target = linuxX64()
+	val linuxArmTarget = linuxArm64()
+	listOf(
+		linuxArmTarget,
+		linux64Target
+	).forEach { target ->
+		target.compilations.getByName("main") {
+			cinterops {
+				val libcrypto by creating {
+					definitionFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
+					localProperties["cinteropsIncludeDir"]?.also {
+						compilerOpts += "-I$it"
+					}
+				}
+			}
+		}
+		target.binaries {
+			all {
+				freeCompilerArgs += listOf("-linker-option", "--allow-shlib-undefined")
+				localProperties["cinteropsLibsDir"]?.also {
+					linkerOpts.add(0, "-L$it")
+				}
+			}
+		}
+	}
+	applyDefaultHierarchyTemplate()
+
+	with(sourceSets) {
+		val commonMain = get("commonMain")
+		val jvmAndAndroidMain = create("jvmAndAndroidMain").apply {
+			dependsOn(commonMain)
+		}
+		get("jvmMain").dependsOn(jvmAndAndroidMain)
+		get("androidMain").dependsOn(jvmAndAndroidMain)
+	}
 
 	compilerOptions {
 		freeCompilerArgs.add("-Xexpect-actual-classes")

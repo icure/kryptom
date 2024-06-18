@@ -1,10 +1,10 @@
 [versions]
-kotlin = "1.9.23"
+kotlin = "2.0.0"
 ktor = "2.3.8"
 coroutines = "1.8.0"
 kotlinSerialization = "1.6.1"
 kotlinDateTime = "0.6.0-RC.2"
-kotest = "5.8.0"
+kotest = "5.9.0"
 androidLibrary = "8.2.2"
 bouncyCastle = "1.70"
 kermit = "2.0.3"
@@ -13,7 +13,6 @@ kermit = "2.0.3"
 
 # Gradle plugins
 kotlinMultiplatformPlugin = { group = "org.jetbrains.kotlin.multiplatform", name = "org.jetbrains.kotlin.multiplatform.gradle.plugin", version.ref = "kotlin" }
-kotlinSerializationPlugin = { group = "org.jetbrains.kotlin.plugin.serialization", name = "org.jetbrains.kotlin.plugin.serialization.gradle.plugin", version.ref = "kotlin" }
 kotestMultiplatformPlugin = { group = "io.kotest.multiplatform", name = "io.kotest.multiplatform.gradle.plugin", version.ref = "kotest" }
 androidLibraryPlugin = { group = "com.android.library", name = "com.android.library.gradle.plugin", version.ref = "androidLibrary" }
 

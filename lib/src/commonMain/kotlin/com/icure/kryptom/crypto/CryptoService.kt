@@ -2,13 +2,11 @@ package com.icure.kryptom.crypto
 
 /**
  * Gives access to cryptographic functions.
- * Thread safe.
  */
 expect val defaultCryptoService: CryptoService
 
 /**
  * Interface which provides cryptographic functions.
- * Implementations must be thread safe.
  */
 interface CryptoService {
 	/**
