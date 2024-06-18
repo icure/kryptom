@@ -1,6 +1,9 @@
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 import java.util.Properties
 
 plugins {
@@ -20,13 +23,19 @@ val mavenReleasesRepository: String by project
 
 project.version = "1.0.4"
 
+val localProperties = Properties().apply {
+	kotlin.runCatching {
+		load(rootProject.file("local.properties").reader())
+	}
+}
+
 @OptIn(ExperimentalKotlinGradlePluginApi::class)
 kotlin {
 	val frameworkName = "Kryptom"
 	val xcf = XCFramework(frameworkName)
 	jvm {
-		compilations.all {
-			kotlinOptions.jvmTarget = "1.8"
+		compilerOptions {
+			jvmTarget.set(JvmTarget.JVM_1_8)
 		}
 	}
 	js(IR) {
@@ -43,8 +52,8 @@ kotlin {
 		generateTypeScriptDefinitions()
 	}
 	androidTarget {
-		compilations.all {
-			kotlinOptions.jvmTarget = "1.8"
+		compilerOptions {
+			jvmTarget.set(JvmTarget.JVM_1_8)
 		}
 		// Important: otherwise android will use the jvm library and it will not work...
 		publishLibraryVariants("release", "debug")
@@ -60,46 +69,39 @@ kotlin {
 			xcf.add(this)
 		}
 	}
-	val localProperties = Properties().apply {
-		kotlin.runCatching {
-			load(rootProject.file("local.properties").reader())
-		}
-	}
 	iosSimulators.forEach { target ->
 		target.testRuns.forEach { testRun ->
 			(localProperties["ios.simulator"] as? String)?.let { testRun.deviceId = it }
 		}
 	}
-
-	linuxX64 {
-		compilations.getByName("main") {
-			cinterops {
-				val libcrypto by creating {
-					definitionFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
-				}
-			}
-		}
+	val linux64Target = linuxX64 {
 		binaries {
 			executable {
 				entryPoint = "main"
 			}
-			all {
-				freeCompilerArgs += listOf("-linker-option", "--allow-shlib-undefined")
-			}
 		}
 	}
-
-	linuxArm64 {
-		compilations.getByName("main") {
+	val linuxArmTarget = linuxArm64()
+	listOf(
+		linuxArmTarget,
+		linux64Target
+	).forEach { target ->
+		target.compilations.getByName("main") {
 			cinterops {
 				val libcrypto by creating {
 					definitionFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
+					localProperties["cinteropsIncludeDir"]?.also {
+						compilerOpts += "-I$it"
+					}
 				}
 			}
 		}
-		binaries {
+		target.binaries {
 			all {
 				freeCompilerArgs += listOf("-linker-option", "--allow-shlib-undefined")
+				localProperties["cinteropsLibsDir"]?.also {
+					linkerOpts.add(0, "-L$it")
+				}
 			}
 		}
 	}

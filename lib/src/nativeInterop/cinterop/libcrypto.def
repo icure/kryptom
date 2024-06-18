@@ -7,6 +7,4 @@ headers = \
     openssl/evp.h \
     openssl/pem.h \
     openssl/err.h
-# headerFilter = openssl/*
-compilerOpts = -I/usr/include
-linkerOpts = -L/usr/lib -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc -lcrypto
+linkerOpts = -lcrypto
