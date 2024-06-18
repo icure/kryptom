@@ -24,7 +24,7 @@ object IosHmacService : HmacService {
 		require(key.algorithm == HmacAlgorithm.HmacSha512) {
 			"Unsupported hmac algorithm: ${key.algorithm}"
 		}
-		memScoped {
+		return memScoped {
 			val out = allocArray<UByteVar>(key.algorithm.digestSize)
 			CCHmac(
 				key.algorithm.coreCryptoAlgorithm,
