@@ -74,13 +74,7 @@ kotlin {
 			(localProperties["ios.simulator"] as? String)?.let { testRun.deviceId = it }
 		}
 	}
-	val linux64Target = linuxX64 {
-		binaries {
-			executable {
-				entryPoint = "main"
-			}
-		}
-	}
+	val linux64Target = linuxX64()
 	val linuxArmTarget = linuxArm64()
 	listOf(
 		linuxArmTarget,
