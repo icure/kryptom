@@ -12,7 +12,6 @@ repositories {
 
 dependencies {
 	implementation(libs.kotlinMultiplatformPlugin)
-	implementation(libs.kotlinSerializationPlugin)
 	implementation(libs.kotestMultiplatformPlugin)
 	implementation(libs.androidLibraryPlugin)
 }

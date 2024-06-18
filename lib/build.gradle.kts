@@ -97,6 +97,11 @@ kotlin {
 				}
 			}
 		}
+		binaries {
+			all {
+				freeCompilerArgs += listOf("-linker-option", "--allow-shlib-undefined")
+			}
+		}
 	}
 	applyDefaultHierarchyTemplate()
 

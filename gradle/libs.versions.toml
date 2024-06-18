@@ -13,7 +13,6 @@ kermit = "2.0.3"
 
 # Gradle plugins
 kotlinMultiplatformPlugin = { group = "org.jetbrains.kotlin.multiplatform", name = "org.jetbrains.kotlin.multiplatform.gradle.plugin", version.ref = "kotlin" }
-kotlinSerializationPlugin = { group = "org.jetbrains.kotlin.plugin.serialization", name = "org.jetbrains.kotlin.plugin.serialization.gradle.plugin", version.ref = "kotlin" }
 kotestMultiplatformPlugin = { group = "io.kotest.multiplatform", name = "io.kotest.multiplatform.gradle.plugin", version.ref = "kotest" }
 androidLibraryPlugin = { group = "com.android.library", name = "com.android.library.gradle.plugin", version.ref = "androidLibrary" }
 

@@ -4,9 +4,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.pin
 import libcrypto.ERR_error_string_n
-import libcrypto.ERR_load_CRYPTO_strings
-import libcrypto.ERR_load_ERR_strings
-import libcrypto.OPENSSL_init_crypto
+import libcrypto.ERR_peek_error
+import libcrypto.ERR_print_errors
 
 @OptIn(ExperimentalForeignApi::class)
 object OpensslErrorHandling {
@@ -16,13 +15,34 @@ object OpensslErrorHandling {
 
     fun Int.ensureEvpSuccess(operation: String? = null) {
         if (this != SUCCESS_CODE) {
-            ERR_error_string_n(this.toULong(), errorStringBuffer.addressOf(0), BUFFER_SIZE)
-            val errorString = errorStringBuffer.get().decodeToString().takeWhile { it.code != 0 }
-            throw PlatformMethodException(
-                if (operation != null) "$operation failed - $errorString" else errorString,
-                this
-            )
+            throwExceptionForCode(this, operation)
         }
+    }
+
+    fun throwExceptionForCode(
+        errorCode: Int,
+        operation: String? = null
+    ): Nothing {
+        val errorMessage = buildString {
+            if (operation != null) {
+                append(operation)
+                append(" failed\n")
+            }
+            if (errorCode != 0) {
+                append("error_string_n: ")
+                ERR_error_string_n(errorCode.toULong(), errorStringBuffer.addressOf(0), BUFFER_SIZE)
+                append(errorStringBuffer.get().decodeToString().takeWhile { it.code != 0 })
+                append("\n")
+            }
+            if (ERR_peek_error() != 0.toULong()) {
+                append("error_queue:\n")
+                append(writingToBio { ERR_print_errors(it) }.decodeToString().takeWhile { it.code != 0 })
+            }
+        }
+        throw PlatformMethodException(
+            errorMessage,
+            errorCode
+        )
     }
 }
 

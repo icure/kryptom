@@ -1,10 +1,14 @@
 package com.icure.kryptom.crypto
 
+import com.icure.kryptom.crypto.OpensslRsaService.use
 import com.icure.kryptom.crypto.asn.pkcs8PrivateToSpkiPublic
 import com.icure.kryptom.crypto.asn.toAsn1
+import com.icure.kryptom.utils.OpensslErrorHandling
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
 import com.icure.kryptom.utils.base64Decode
+import com.icure.kryptom.utils.readingFromBio
+import com.icure.kryptom.utils.writingToBio
 import io.ktor.util.encodeBase64
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
@@ -29,6 +33,17 @@ import libcrypto.BIO_s_mem
 import libcrypto.BIO_write_ex
 import libcrypto.BN_new
 import libcrypto.BN_set_word
+import libcrypto.ERR_clear_error
+import libcrypto.EVP_DigestSignFinal
+import libcrypto.EVP_DigestSignInit
+import libcrypto.EVP_DigestSignUpdate
+import libcrypto.EVP_DigestVerifyFinal
+import libcrypto.EVP_DigestVerifyInit
+import libcrypto.EVP_DigestVerifyUpdate
+import libcrypto.EVP_MD_CTX
+import libcrypto.EVP_MD_CTX_free
+import libcrypto.EVP_MD_CTX_get_pkey_ctx
+import libcrypto.EVP_MD_CTX_new
 import libcrypto.EVP_PKEY
 import libcrypto.EVP_PKEY_CTX
 import libcrypto.EVP_PKEY_CTX_free
@@ -54,6 +69,7 @@ import libcrypto.PEM_write_bio_PKCS8PrivateKey
 import libcrypto.PEM_write_bio_PUBKEY
 import libcrypto.RSA_F4
 import libcrypto.RSA_PKCS1_OAEP_PADDING
+import libcrypto.RSA_PKCS1_PSS_PADDING
 
 @OptIn(ExperimentalForeignApi::class)
 /*
@@ -95,25 +111,6 @@ object OpensslRsaService : RsaService {
             }
         }
 
-    // Initializes a bio, executes a lambda that writes something to that bio, then creates a kotlin byte array with the
-    // data from the bio and frees the original bio before returning.
-    private fun writingToBio(
-        writeToBio: (bio: CPointer<BIO>) -> Unit
-    ): ByteArray = memScoped {
-        val bio = BIO_new(BIO_s_mem()) ?: throw PlatformMethodException("Could not initialise bio", null)
-        val bioDataStart = alloc<CPointerVar<ByteVar>>()
-        try {
-            writeToBio(bio)
-            val length = BIO_ctrl(bio, BIO_CTRL_INFO, 0, bioDataStart.ptr).toInt()
-            check(length > 0) { "BIO_CTRL_INFO returned $length" }
-            checkNotNull(bioDataStart.value?.readBytes(length)) {
-                "BIO data points to null"
-            }
-        } finally {
-            BIO_free_all(bio)
-        }
-    }
-
     private fun getPemPkcs8Bytes(
         key: CPointerVar<EVP_PKEY>
     ): ByteArray = writingToBio {
@@ -136,7 +133,7 @@ object OpensslRsaService : RsaService {
 
     override suspend fun exportPrivateKeyPkcs8(key: PrivateRsaKey<*>): ByteArray {
         require(key.pemPkcs8Key.startsWith(PEM_PRIVATE_HEADER)) { "Key does not start with private key header" }
-        require(key.pemPkcs8Key.startsWith(PEM_PRIVATE_FOOTER)) { "Key does not start with private key footer" }
+        require(key.pemPkcs8Key.endsWith(PEM_PRIVATE_FOOTER)) { "Key does not end with private key footer" }
         return base64Decode(key.pemPkcs8Key
             .removePrefix(PEM_PRIVATE_HEADER)
             .removeSuffix(PEM_PRIVATE_FOOTER)
@@ -146,7 +143,7 @@ object OpensslRsaService : RsaService {
 
     override suspend fun exportPublicKeySpki(key: PublicRsaKey<*>): ByteArray  {
         require(key.pemSpkiKey.startsWith(PEM_PUBLIC_HEADER)) { "Key does not start with public key header" }
-        require(key.pemSpkiKey.startsWith(PEM_PUBLIC_FOOTER)) { "Key does not start with public key footer" }
+        require(key.pemSpkiKey.endsWith(PEM_PUBLIC_FOOTER)) { "Key does not end with public key footer" }
         return base64Decode(key.pemSpkiKey
             .removePrefix(PEM_PUBLIC_HEADER)
             .removeSuffix(PEM_PUBLIC_FOOTER)
@@ -176,34 +173,13 @@ object OpensslRsaService : RsaService {
         PrivateRsaKey(
             privateKeyPkcs8.toPemString(PEM_PRIVATE_HEADER, PEM_PRIVATE_FOOTER),
             algorithm
-        )
+        ).also { it.use { /* do nothing, just force an import to make sure the key is valid */ } }
 
     override suspend fun <A : RsaAlgorithm> loadPublicKeySpki(algorithm: A, publicKeySpki: ByteArray): PublicRsaKey<A> =
         PublicRsaKey(
             publicKeySpki.toPemString(PEM_PUBLIC_HEADER, PEM_PUBLIC_FOOTER),
             algorithm
-        )
-
-    private fun <T> readingFromBio(
-        data: ByteArray,
-        readFromBio: (readFromBio: CPointer<BIO>) -> T
-    ): T = memScoped {
-        data.usePinned {
-            val written = alloc<ULongVar>()
-            val bio = BIO_new(BIO_s_mem()) ?: throw PlatformMethodException("Could not initialise bio", null)
-            try {
-                BIO_write_ex(bio, it.addressOf(0), data.size.toULong(), written.ptr).ensureEvpSuccess(
-                    "BIO_write_ex"
-                )
-                check(written.value.toInt() == data.size) {
-                    "Written bytes and data size differ (written: ${written.value}, data size: ${data.size})"
-                }
-                readFromBio(bio)
-            } finally {
-                BIO_free_all(bio)
-            }
-        }
-    }
+        ).also { it.use { /* do nothing, just force an import to make sure the key is valid */ } }
 
     private fun <T> PublicRsaKey<*>.use(
         block: (CPointer<EVP_PKEY>) -> T
@@ -241,7 +217,7 @@ object OpensslRsaService : RsaService {
         }
     }
 
-    private fun initializeEncryptionDecryptionContextParams(
+    private fun initializeEncryptionOrDecryptionContextParams(
         ctx: CValuesRef<EVP_PKEY_CTX>,
         algorithm: RsaAlgorithm.RsaEncryptionAlgorithm
     ) {
@@ -267,7 +243,7 @@ object OpensslRsaService : RsaService {
             val pinnedInput = data.asUByteArray().pin()
             try {
                 EVP_PKEY_encrypt_init(ctx).ensureEvpSuccess("EVP_PKEY_encrypt_init")
-                initializeEncryptionDecryptionContextParams(ctx, publicKey.algorithm)
+                initializeEncryptionOrDecryptionContextParams(ctx, publicKey.algorithm)
                 val outlen = alloc<ULongVar>()
                 EVP_PKEY_encrypt(ctx, null, outlen.ptr, pinnedInput.addressOf(0), data.size.toULong()).ensureEvpSuccess("EVP_PKEY_encrypt-len")
                 val output = UByteArray(outlen.value.toInt())
@@ -292,7 +268,7 @@ object OpensslRsaService : RsaService {
             val pinnedInput = data.asUByteArray().pin()
             try {
                 EVP_PKEY_decrypt_init(ctx).ensureEvpSuccess("EVP_PKEY_encrypt_init")
-                initializeEncryptionDecryptionContextParams(ctx, privateKey.algorithm)
+                initializeEncryptionOrDecryptionContextParams(ctx, privateKey.algorithm)
                 val outlen = alloc<ULongVar>()
                 EVP_PKEY_decrypt(ctx, null, outlen.ptr, pinnedInput.addressOf(0), data.size.toULong()).ensureEvpSuccess("EVP_PKEY_decrypt-len")
                 val output = UByteArray(outlen.value.toInt())
@@ -307,18 +283,87 @@ object OpensslRsaService : RsaService {
         }
     }
 
+    fun RsaAlgorithm.RsaSignatureAlgorithm.EVP_digest() = when (this) {
+        RsaAlgorithm.RsaSignatureAlgorithm.PssWithSha256 -> EVP_sha256()
+    }
+
+    private fun initializeSignatureOrVerificationContextParams(
+        ctx: CValuesRef<EVP_MD_CTX>,
+        algorithm: RsaAlgorithm.RsaSignatureAlgorithm
+    ) {
+        // No need to free explicitly the returned value, will be freed with ctx
+        val pkeyCtx = EVP_MD_CTX_get_pkey_ctx(ctx) ?: throw PlatformMethodException("EVP_MD_CTX_get_pkey_ctx returned null", null)
+        EVP_PKEY_CTX_set_rsa_padding(
+            pkeyCtx,
+            when (algorithm) {
+                RsaAlgorithm.RsaSignatureAlgorithm.PssWithSha256 -> RSA_PKCS1_PSS_PADDING
+            }
+        ).ensureEvpSuccess("EVP_PKEY_CTX_set_rsa_padding")
+    }
+
     override suspend fun sign(
         data: ByteArray,
         privateKey: PrivateRsaKey<RsaAlgorithm.RsaSignatureAlgorithm>
-    ): ByteArray {
-        TODO()
+    ): ByteArray = privateKey.use { key ->
+        memScoped {
+            val ctx = EVP_MD_CTX_new() ?: throw PlatformMethodException("Could not initialise context", null)
+            val pinnedData = data.asUByteArray().pin()
+            try {
+                EVP_DigestSignInit(
+                    ctx,
+                    null,
+                    privateKey.algorithm.EVP_digest(),
+                    null,
+                    key
+                ).ensureEvpSuccess("EVP_DigestSignInit")
+                initializeSignatureOrVerificationContextParams(ctx, privateKey.algorithm)
+                EVP_DigestSignUpdate(ctx, pinnedData.addressOf(0), data.size.toULong()).ensureEvpSuccess("EVP_DigestSignUpdate")
+                val outlen = alloc<ULongVar>()
+                EVP_DigestSignFinal(ctx, null, outlen.ptr).ensureEvpSuccess("EVP_DigestSignFinal-len")
+                val output = ByteArray(outlen.value.toInt())
+                output.asUByteArray().usePinned {
+                    EVP_DigestSignFinal(ctx, it.addressOf(0), outlen.ptr).ensureEvpSuccess("EVP_DigestSignFinal")
+                }
+                check(outlen.value.toInt() == output.size) { "Output size is not the expected" }
+                output
+            } finally {
+                EVP_MD_CTX_free(ctx)
+                pinnedData.unpin()
+            }
+        }
     }
 
     override suspend fun verifySignature(
         signature: ByteArray,
         data: ByteArray,
         publicKey: PublicRsaKey<RsaAlgorithm.RsaSignatureAlgorithm>
-    ): Boolean {
-        TODO("Not yet implemented")
+    ): Boolean = publicKey.use { key ->
+        memScoped {
+            val ctx = EVP_MD_CTX_new() ?: throw PlatformMethodException("Could not initialise context", null)
+            val pinnedData = data.asUByteArray().pin()
+            val pinnedSignature = signature.asUByteArray().pin()
+            try {
+                EVP_DigestVerifyInit(
+                    ctx,
+                    null,
+                    publicKey.algorithm.EVP_digest(),
+                    null,
+                    key
+                ).ensureEvpSuccess("EVP_DigestVerifyInit")
+                initializeSignatureOrVerificationContextParams(ctx, publicKey.algorithm)
+                EVP_DigestVerifyUpdate(ctx, pinnedData.addressOf(0), data.size.toULong()).ensureEvpSuccess("EVP_DigestVerifyUpdate")
+                when (val verifyResult = EVP_DigestVerifyFinal(ctx, pinnedSignature.addressOf(0), signature.size.toULong())) {
+                    0 -> false.also { // 0 in this case does not mean an error but only means that the signature did not verify
+                        ERR_clear_error() // But there will still be an error tracked
+                    }
+                    1 -> true
+                    else -> OpensslErrorHandling.throwExceptionForCode(verifyResult)
+                }
+            } finally {
+                EVP_MD_CTX_free(ctx)
+                pinnedData.unpin()
+                pinnedSignature.unpin()
+            }
+        }
     }
 }
