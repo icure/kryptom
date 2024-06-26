@@ -1,4 +1,4 @@
-package com.icure.kryptom.ios
+package com.icure.kryptom.apple
 
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.allocArrayOf

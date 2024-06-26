@@ -1,7 +1,7 @@
 package com.icure.kryptom.crypto
 
-import com.icure.kryptom.ios.toByteArray
-import com.icure.kryptom.ios.toCFData
+import com.icure.kryptom.apple.toByteArray
+import com.icure.kryptom.apple.toCFData
 import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped

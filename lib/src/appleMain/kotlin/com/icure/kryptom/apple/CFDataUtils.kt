@@ -1,4 +1,4 @@
-package com.icure.kryptom.ios
+package com.icure.kryptom.apple
 
 import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.cinterop.CPointer

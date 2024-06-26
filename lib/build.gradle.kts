@@ -1,9 +1,7 @@
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
-import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 import java.util.Properties
 
 plugins {
@@ -74,6 +72,8 @@ kotlin {
 			(localProperties["ios.simulator"] as? String)?.let { testRun.deviceId = it }
 		}
 	}
+	macosX64()
+	macosArm64()
 	val linux64Target = linuxX64()
 	val linuxArmTarget = linuxArm64()
 	listOf(
@@ -156,7 +156,7 @@ kotlin {
 				implementation(libs.kotestRunnerJunit)
 			}
 		}
-		optInIos("kotlinx.cinterop.ExperimentalForeignApi", "kotlinx.cinterop.BetaInteropApi")
+		optInApple("kotlinx.cinterop.ExperimentalForeignApi", "kotlinx.cinterop.BetaInteropApi")
 	}
 }
 
