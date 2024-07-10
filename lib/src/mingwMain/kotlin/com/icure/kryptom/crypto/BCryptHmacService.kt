@@ -4,14 +4,11 @@ import com.icure.kryptom.utils.PlatformMethodException
 import com.icure.kryptom.utils.ensureSuccess
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.IntVar
-import kotlinx.cinterop.UIntVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.windows.BCRYPT_ALG_HANDLE
@@ -19,7 +16,6 @@ import platform.windows.BCRYPT_HASH_HANDLEVar
 import platform.windows.BCryptCreateHash
 import platform.windows.BCryptDestroyHash
 import platform.windows.BCryptFinishHash
-import platform.windows.BCryptGetProperty
 import platform.windows.BCryptHashData
 
 @OptIn(ExperimentalForeignApi::class)
@@ -59,24 +55,9 @@ object BCryptHmacService : HmacService {
 
     override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray = withAlgorithmHandle(key.algorithm) { algorithmHandle ->
         memScoped {
-            // BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, (PUCHAR)&hashObjectSize, sizeof(DWORD), &result, 0)
-            val resultSize = alloc<IntVar>()
-            val written = alloc<UIntVar>()
-            BCryptGetProperty(
-                algorithmHandle,
-                "ObjectLength",
-                resultSize.ptr.reinterpret(),
-                sizeOf<IntVar>().toUInt(),
-                written.ptr,
-                0.toUInt()
-            ).ensureSuccess("BCryptGetProperty")
-            check(written.value == sizeOf<UIntVar>().toUInt()) {
-                "GetProperty wrote unexpected amount of bytes"
-            }
+            val hashingBufferSize = algorithmHandle.getBCryptProperty(BCryptProperty.ObjectLengthProperty)
             val hashHandle = alloc<BCRYPT_HASH_HANDLEVar>()
-            val hashingBuffer = ByteArray(resultSize.value)
-            println(hashingBuffer.size)
-            println(key.algorithm.digestSize)
+            val hashingBuffer = ByteArray(hashingBufferSize)
             val pinnedHashingBuffer = hashingBuffer.pin()
             val pinnedKey = key.rawKey.pin()
             try {

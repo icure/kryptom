@@ -1,30 +1,36 @@
 package com.icure.kryptom.crypto
 
+import com.icure.kryptom.crypto.BCryptProperty.BlockChainingModeProperty.settingValue
 import com.icure.kryptom.utils.PlatformMethodException
 import com.icure.kryptom.utils.ensureSuccess
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import kotlinx.cinterop.wcstr
 import platform.windows.BCRYPT_ALG_HANDLE
 import platform.windows.BCRYPT_ALG_HANDLEVar
+import platform.windows.BCRYPT_HANDLE
 import platform.windows.BCryptCloseAlgorithmProvider
+import platform.windows.BCryptGetProperty
 import platform.windows.BCryptOpenAlgorithmProvider
 import platform.windows.BCryptSetProperty
 
 @OptIn(ExperimentalForeignApi::class)
 fun <T> withAlgorithmHandle(
     algorithm: BCryptAlgorithm,
-    vararg properties: BCryptProperty,
+    vararg properties: BCryptPropertyWithValue<*>,
     flag: Int = 0,
     block: (BCRYPT_ALG_HANDLE) -> T
 ): T {
-    require(properties.distinctBy { it.propertyIdentifier }.size == properties.size) {
+    require(properties.distinctBy { it.property.propertyIdentifier }.size == properties.size) {
         "Duplicate properties in $properties"
     }
     return memScoped {
@@ -35,17 +41,11 @@ fun <T> withAlgorithmHandle(
             null,
             flag.toUInt()
         ).ensureSuccess("BCryptOpenAlgorithmProvider")
-        properties.forEach { prop ->
-            BCryptSetProperty(
-                handle.value,
-                prop.propertyIdentifier,
-                prop.valueIdentifier.wcstr.getPointer(memScope).reinterpret(),
-                prop.valueIdentifier.length.toUInt(),
-                0.toUInt()
-            ).ensureSuccess("BCryptSetProperty of ${prop.propertyIdentifier}")
-        }
         val handleValue = handle.value
             ?: throw PlatformMethodException("BCryptOpenAlgorithmProvider successful but handle is null", null)
+        properties.forEach { prop ->
+            prop.setIn(this, handleValue)
+        }
         try {
             block(handleValue)
         } finally {
@@ -53,3 +53,40 @@ fun <T> withAlgorithmHandle(
         }
     }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+fun <V> BCRYPT_HANDLE.getBCryptProperty(property: BCryptProperty<V>): V =
+    property.gettingValue { resultBuffer, resultBufferSize, scope ->
+        val writtenSize = scope.alloc<IntVar>()
+        BCryptGetProperty(
+            this,
+            property.propertyIdentifier,
+            resultBuffer,
+            resultBufferSize.toUInt(),
+            writtenSize.ptr.reinterpret(),
+            0.toUInt()
+        ).ensureSuccess("BCryptGetProperty")
+        writtenSize.value
+    }
+
+@OptIn(ExperimentalForeignApi::class)
+data class BCryptPropertyWithValue<V>(
+    val property: BCryptProperty<V>,
+    val value: V,
+) {
+    fun setIn(
+        scope: MemScope,
+        handle: BCRYPT_HANDLE
+    ) {
+        val (ptr, size) = property.settingValue(scope, value)
+        BCryptSetProperty(
+            handle,
+            property.propertyIdentifier,
+            ptr,
+            size.toUInt(),
+            0.toUInt()
+        ).ensureSuccess("BCryptSetProperty of ${property.propertyIdentifier}")
+    }
+}
+
+infix fun <V> BCryptProperty<V>.setTo(value: V) = BCryptPropertyWithValue(this, value)

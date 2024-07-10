@@ -14,7 +14,7 @@ object BCryptAesService : AesService {
     ): T = when (algorithm) {
         AesAlgorithm.CbcWithPkcs7Padding -> withAlgorithmHandle(
             BCryptAlgorithm.BCRYPT_AES_ALGORITHM,
-            BCryptProperty.BlockChainingMode.BCRYPT_CHAIN_MODE_CBC,
+            BCryptProperty.BlockChainingModeProperty setTo BCryptProperty.BlockChainingModeProperty.BlockChainingMode.BCRYPT_CHAIN_MODE_CBC,
             block = block
         )
     }
