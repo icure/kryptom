@@ -4,9 +4,7 @@ import com.icure.kryptom.crypto.asn.AsnToJwkConverter
 import com.icure.kryptom.crypto.asn.pkcs8PrivateToSpkiPublic
 import com.icure.kryptom.crypto.asn.toAsn1
 import com.icure.kryptom.utils.PlatformMethodException
-import com.icure.kryptom.utils.base64UrlDecode
 import com.icure.kryptom.utils.ensureSuccess
-import io.ktor.util.*
 import kotlinx.cinterop.CValuesRef
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
@@ -15,9 +13,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import kotlinx.cinterop.wcstr
@@ -25,26 +21,22 @@ import platform.windows.BCRYPT_ALG_HANDLE
 import platform.windows.BCRYPT_KEY_HANDLE
 import platform.windows.BCRYPT_KEY_HANDLEVar
 import platform.windows.BCRYPT_OAEP_PADDING_INFO
-import platform.windows.BCRYPT_RSAKEY_BLOB
 import platform.windows.BCryptDecrypt
 import platform.windows.BCryptDestroyKey
 import platform.windows.BCryptEncrypt
+import platform.windows.BCryptExportKey
+import platform.windows.BCryptFinalizeKeyPair
+import platform.windows.BCryptGenerateKeyPair
 import platform.windows.BCryptImportKeyPair
-import platform.windows.CryptStringToBinary
 
 @OptIn(ExperimentalForeignApi::class)
 object BCryptRsaService : RsaService {
     private const val BCRYPT_PUBLIC_KEY_BLOB = "RSAPUBLICBLOB"
     private const val BCRYPT_PRIVATE_KEY_BLOB = "RSAPRIVATEBLOB"
+    private const val BCRYPT_RSAFULLPRIVATE_BLOB = "RSAFULLPRIVATEBLOB"
     private const val BCRYPT_SHA256_ALGORITHM = "SHA256"
     private const val BCRYPT_SHA1_ALGORITHM = "SHA1"
-    private const val PEM_PRIVATE_HEADER = "-----BEGIN PRIVATE KEY-----\n"
-    private const val PEM_PRIVATE_FOOTER = "-----END PRIVATE KEY-----\n"
-    private const val PEM_PUBLIC_HEADER = "-----BEGIN PUBLIC KEY-----\n"
-    private const val PEM_PUBLIC_FOOTER = "-----END PUBLIC KEY-----\n"
     private val BCRYPT_PAD_OAEP = 0x04.toUInt()
-    private val BCRYPT_RSAPUBLIC_MAGIC = 0x31415352.toUInt()
-    private val BCRYPT_RSAPRIVATE_MAGIC = 0x32415352.toUInt()
 
 
     private fun <T> withAlgorithmHandle(
@@ -115,29 +107,15 @@ object BCryptRsaService : RsaService {
         block: (keyHandle: BCRYPT_KEY_HANDLE) -> T
     ): T =
         memScoped {
-            val keyJwk = AsnToJwkConverter.pkcs8ToJwk(key.algorithm, key.pkcs8Key)
-            val publicExponent = base64UrlDecode(keyJwk.e)
-            val modulus = base64UrlDecode(keyJwk.n)
-            val prime1 = base64UrlDecode(keyJwk.p)
-            val prime2 = base64UrlDecode(keyJwk.q)
             val keyHandle = alloc<BCRYPT_KEY_HANDLEVar>()
-            val keyBlobHeader = alloc<BCRYPT_RSAKEY_BLOB>()
-            keyBlobHeader.Magic = BCRYPT_RSAPRIVATE_MAGIC
-            keyBlobHeader.BitLength = (modulus.size * 8).toUInt()
-            keyBlobHeader.cbModulus = modulus.size.toUInt()
-            keyBlobHeader.cbPublicExp = publicExponent.size.toUInt()
-            keyBlobHeader.cbPrime1 = prime1.size.toUInt()
-            keyBlobHeader.cbPrime2 = prime2.size.toUInt()
-            val keyBlobHeaderBytes = keyBlobHeader.ptr.readBytes(sizeOf<BCRYPT_RSAKEY_BLOB>().toInt())
-            val keyBlob = keyBlobHeaderBytes + publicExponent + modulus + prime1 + prime2
-            keyBlob.usePinned { pinnedKeyBlob ->
+            key.keyData.minimalPackedBytes.usePinned { pinnedKeyBlob ->
                 BCryptImportKeyPair(
                     algorithmHandle,
                     null,
                     BCRYPT_PRIVATE_KEY_BLOB,
                     keyHandle.ptr,
                     pinnedKeyBlob.addressOf(0).reinterpret(),
-                    keyBlob.size.toUInt(),
+                    pinnedKeyBlob.get().size.toUInt(),
                     0.toUInt()
                 ).ensureSuccess("BCryptImportKeyPair private")
             }
@@ -158,27 +136,15 @@ object BCryptRsaService : RsaService {
         block: (keyHandle: BCRYPT_KEY_HANDLE) -> T
     ): T =
         memScoped {
-            val keyJwk = AsnToJwkConverter.spkiToJwk(key.algorithm, key.spkiKey)
-            val publicExponent = base64UrlDecode(keyJwk.e)
-            val modulus = base64UrlDecode(keyJwk.n)
             val keyHandle = alloc<BCRYPT_KEY_HANDLEVar>()
-            val keyBlobHeader = alloc<BCRYPT_RSAKEY_BLOB>()
-            keyBlobHeader.Magic = BCRYPT_RSAPUBLIC_MAGIC
-            keyBlobHeader.BitLength = (modulus.size * 8).toUInt()
-            keyBlobHeader.cbModulus = modulus.size.toUInt()
-            keyBlobHeader.cbPublicExp = publicExponent.size.toUInt()
-            keyBlobHeader.cbPrime1 = 0.toUInt()
-            keyBlobHeader.cbPrime2 = 0.toUInt()
-            val keyBlobHeaderBytes = keyBlobHeader.ptr.readBytes(sizeOf<BCRYPT_RSAKEY_BLOB>().toInt())
-            val keyBlob = keyBlobHeaderBytes + publicExponent + modulus
-            keyBlob.usePinned { pinnedKeyBlob ->
+            key.keyData.packedBytes.usePinned { pinnedKeyBlob ->
                 BCryptImportKeyPair(
                     algorithmHandle,
                     null,
                     BCRYPT_PUBLIC_KEY_BLOB,
                     keyHandle.ptr,
                     pinnedKeyBlob.addressOf(0).reinterpret(),
-                    keyBlob.size.toUInt(),
+                    pinnedKeyBlob.get().size.toUInt(),
                     0.toUInt()
                 ).ensureSuccess("BCryptImportKeyPair public")
             }
@@ -193,15 +159,67 @@ object BCryptRsaService : RsaService {
             }
         }
 
-    override suspend fun <A : RsaAlgorithm> generateKeyPair(algorithm: A, keySize: RsaService.KeySize): RsaKeypair<A> {
-        TODO("Not yet implemented")
+    override suspend fun <A : RsaAlgorithm> generateKeyPair(
+        algorithm: A,
+        keySize: RsaService.KeySize
+    ): RsaKeypair<A> = withAlgorithmHandle(algorithm) { algorithmHandle ->
+        memScoped {
+            val keyHandle = alloc<BCRYPT_KEY_HANDLEVar>()
+            try {
+                BCryptGenerateKeyPair(
+                    algorithmHandle,
+                    keyHandle.ptr,
+                    keySize.bitSize.toUInt(),
+                    0.toUInt()
+                ).ensureSuccess("BCryptGenerateKeyPair")
+                BCryptFinalizeKeyPair(keyHandle.value, 0.toUInt()).ensureSuccess("BCryptFinalizeKeyPair")
+                val keyBlobSize = alloc<UIntVar>()
+                BCryptExportKey(
+                    keyHandle.value,
+                    null,
+                    BCRYPT_RSAFULLPRIVATE_BLOB,
+                    null,
+                    0.toUInt(),
+                    keyBlobSize.ptr,
+                    0.toUInt(),
+                ).ensureSuccess("BCryptExportKey get buffer size")
+                val exportedKey = ByteArray(keyBlobSize.value.toInt()).also { exportedKey ->
+                    exportedKey.usePinned { exportedKeyPinned ->
+                        BCryptExportKey(
+                            keyHandle.value,
+                            null,
+                            BCRYPT_RSAFULLPRIVATE_BLOB,
+                            exportedKeyPinned.addressOf(0).reinterpret(),
+                            exportedKey.size.toUInt(),
+                            keyBlobSize.ptr,
+                            0.toUInt(),
+                        ).ensureSuccess("BCryptExportKey do export")
+                    }
+                }.sliceArray(0 until keyBlobSize.value.toInt())
+                val keyInfo = BCryptRsaFullPrivateKeyBlob.fromBytes(exportedKey)
+                RsaKeypair(
+                    PrivateRsaKey(
+                        keyInfo,
+                        algorithm
+                    ),
+                    PublicRsaKey(
+                        keyInfo.toPublic(),
+                        algorithm
+                    )
+                )
+            } finally {
+                keyHandle.value?.also {
+                    BCryptDestroyKey(it)
+                }
+            }
+        }
     }
 
     override suspend fun exportPrivateKeyPkcs8(key: PrivateRsaKey<*>): ByteArray =
-        key.pkcs8Key.copyOf()
+        key.keyData.toPkcs8()
 
     override suspend fun exportPublicKeySpki(key: PublicRsaKey<*>): ByteArray =
-        key.spkiKey.copyOf()
+        key.keyData.toSpki()
 
     override suspend fun <A : RsaAlgorithm> loadKeyPairPkcs8(algorithm: A, privateKeyPkcs8: ByteArray): RsaKeypair<A> =
         RsaKeypair(
@@ -214,7 +232,7 @@ object BCryptRsaService : RsaService {
         privateKeyPkcs8: ByteArray
     ): PrivateRsaKey<A> =
         PrivateRsaKey(
-            privateKeyPkcs8.copyOf(),
+            BCryptRsaFullPrivateKeyBlob.fromJwk(AsnToJwkConverter.pkcs8ToJwk(algorithm, privateKeyPkcs8)),
             algorithm,
         ).also {
             withAlgorithmHandle(algorithm) { algorithmHandle -> withKeyHandle(it, algorithmHandle) {
@@ -224,7 +242,7 @@ object BCryptRsaService : RsaService {
 
     override suspend fun <A : RsaAlgorithm> loadPublicKeySpki(algorithm: A, publicKeySpki: ByteArray): PublicRsaKey<A> =
         PublicRsaKey(
-            publicKeySpki.copyOf(),
+            BCryptRsaPublicKeyBlob.fromJwk(AsnToJwkConverter.spkiToJwk(algorithm, publicKeySpki)),
             algorithm,
         ).also {
             withAlgorithmHandle(algorithm) { algorithmHandle -> withKeyHandle(it, algorithmHandle) {
