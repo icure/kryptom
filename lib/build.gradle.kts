@@ -99,6 +99,7 @@ kotlin {
 			}
 		}
 	}
+	mingwX64()
 	applyDefaultHierarchyTemplate()
 
 	with(sourceSets) {
