@@ -2,7 +2,6 @@ package com.icure.kryptom.crypto
 
 import com.icure.kryptom.utils.PlatformMethodException
 import com.icure.kryptom.utils.ensureSuccess
-import com.icure.kryptom.utils.toHexString
 import kotlinx.cinterop.*
 import platform.posix.memcpy
 import platform.windows.*
@@ -20,7 +19,6 @@ object BCryptAesService : AesService {
         )
     }
 
-    // TODO use actual key generation solution
     override suspend fun <A : AesAlgorithm> generateKey(algorithm: A, size: AesService.KeySize): AesKey<A> =
         AesKey(
             BCryptStrongRandom.randomBytes(size.byteSize),

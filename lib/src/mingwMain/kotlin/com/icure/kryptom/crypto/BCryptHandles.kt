@@ -21,6 +21,7 @@ import platform.windows.BCryptSetProperty
 fun <T> withAlgorithmHandle(
     algorithm: BCryptAlgorithm,
     vararg properties: BCryptProperty,
+    flag: Int = 0,
     block: (BCRYPT_ALG_HANDLE) -> T
 ): T {
     require(properties.distinctBy { it.propertyIdentifier }.size == properties.size) {
@@ -32,7 +33,7 @@ fun <T> withAlgorithmHandle(
             handle.ptr,
             algorithm.identifier,
             null,
-            0.toUInt()
+            flag.toUInt()
         ).ensureSuccess("BCryptOpenAlgorithmProvider")
         properties.forEach { prop ->
             BCryptSetProperty(

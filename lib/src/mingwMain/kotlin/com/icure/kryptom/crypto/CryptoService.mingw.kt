@@ -8,5 +8,5 @@ actual val defaultCryptoService = object : CryptoService {
     override val rsa: RsaService get() = TODO()
     override val strongRandom: StrongRandom get() = BCryptStrongRandom
     override val digest: DigestService get() = TODO()
-    override val hmac: HmacService get() = TODO()
+    override val hmac: HmacService get() = BCryptHmacService
 }

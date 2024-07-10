@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.utils.io.charsets.Charsets
 import io.ktor.utils.io.core.toByteArray
+import kotlin.random.Random
 
 
 private val keys = mapOf<HmacAlgorithm, List<String>>(
@@ -99,6 +100,23 @@ class HmacServiceTest : StringSpec({
 					dataString.toByteArray(Charsets.UTF_8),
 					wrongKey
 				) shouldBe false
+			}
+		}
+
+		"$algorithm - methods should not modify input buffer" {
+			val data = Random.nextBytes(30)
+			val dataCopy = data.copyOf()
+			val key = Random.nextBytes(algorithm.recommendedKeySize)
+			val keyCopy = key.copyOf()
+			try {
+				val loadedKey = defaultCryptoService.hmac.loadKey(algorithm, key)
+				val signature = defaultCryptoService.hmac.sign(data, loadedKey)
+				defaultCryptoService.hmac.verify(signature, data, loadedKey)
+			} catch(e: Exception) {
+				// This test does not care if the methods complete successfully, as long as the buffers are unmodified this test should pass
+			} finally {
+				data.toList() shouldBe dataCopy.toList()
+				key.toList() shouldBe keyCopy.toList()
 			}
 		}
 	}
