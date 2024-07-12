@@ -193,20 +193,40 @@ class BCryptRsaFullPrivateKeyBlob(
         require(exponent1.size == prime1.size) { "Size mismatch: ${exponent1.size} != ${prime1.size}" }
         require(exponent2.size == prime2.size) { "Size mismatch: ${exponent2.size} != ${prime2.size}" }
         require(coefficient.size == prime1.size) { "Size mismatch: ${coefficient.size} != ${prime1.size}" }
-        require(modulus.size == privateExponent.size) { "Size mismatch: ${privateExponent.size} != ${privateExponent.size}" }
+        require(modulus.size == privateExponent.size) { "Size mismatch: ${modulus.size} != ${privateExponent.size}" }
     }
 
     companion object {
-        fun fromJwk(jwk: PrivateRsaKeyJwk) = BCryptRsaFullPrivateKeyBlob(
-            publicExponent = base64UrlDecode(jwk.e),
-            modulus = base64UrlDecode(jwk.n),
-            prime1 = base64UrlDecode(jwk.p),
-            prime2 = base64UrlDecode(jwk.q),
-            exponent1 = base64UrlDecode(jwk.dp),
-            exponent2 = base64UrlDecode(jwk.dq),
-            coefficient = base64UrlDecode(jwk.qi),
-            privateExponent = base64UrlDecode(jwk.d),
-        )
+        fun fromJwk(jwk: PrivateRsaKeyJwk): BCryptRsaFullPrivateKeyBlob {
+            fun ByteArray.prependWith0ToHaveSize(
+                size: Int
+            ): ByteArray {
+                require(this.size <= size) { "Array size is ${this.size} but want size $size" }
+                return if (this.size == size) this else ByteArray(size - this.size) + this
+            }
+            val rawPublicExponent = base64UrlDecode(jwk.e)
+            val rawModulus = base64UrlDecode(jwk.n)
+            val rawPrime1 = base64UrlDecode(jwk.p)
+            val rawPrime2 = base64UrlDecode(jwk.q)
+            val rawExponent1 = base64UrlDecode(jwk.dp)
+            val rawExponent2 = base64UrlDecode(jwk.dq)
+            val rawCoefficient = base64UrlDecode(jwk.qi)
+            val rawPrivateExponent = base64UrlDecode(jwk.d)
+            val cbPublicExp = rawPublicExponent.size
+            val cbModulus = maxOf(rawModulus.size, rawPrivateExponent.size)
+            val cbPrime1 = maxOf(rawPrime1.size, rawExponent1.size, rawCoefficient.size)
+            val cbPrime2 = maxOf(rawPrime2.size, rawExponent2.size)
+            return BCryptRsaFullPrivateKeyBlob(
+                rawPublicExponent.prependWith0ToHaveSize(cbPublicExp),
+                rawModulus.prependWith0ToHaveSize(cbModulus),
+                rawPrime1.prependWith0ToHaveSize(cbPrime1),
+                rawPrime2.prependWith0ToHaveSize(cbPrime2),
+                rawExponent1.prependWith0ToHaveSize(cbPrime1),
+                rawExponent2.prependWith0ToHaveSize(cbPrime2),
+                rawCoefficient.prependWith0ToHaveSize(cbPrime1),
+                rawPrivateExponent.prependWith0ToHaveSize(cbModulus),
+            )
+        }
 
         fun fromBytes(bytes: ByteArray): BCryptRsaFullPrivateKeyBlob {
             val header = BCryptRsaKeyHeader.fromBytes(bytes)
@@ -217,14 +237,14 @@ class BCryptRsaFullPrivateKeyBlob(
                 bytes.sliceArray(BCryptRsaKeyHeader.STRUCT_SIZE until bytes.size)
             )
             return BCryptRsaFullPrivateKeyBlob(
-                reader.readNext(header.cbPublicExp.toInt()),
-                reader.readNext(header.cbModulus.toInt()),
-                reader.readNext(header.cbPrime1.toInt()),
-                reader.readNext(header.cbPrime2.toInt()),
-                reader.readNext(header.cbPrime1.toInt()),
-                reader.readNext(header.cbPrime2.toInt()),
-                reader.readNext(header.cbPrime1.toInt()),
-                reader.readNext(header.cbModulus.toInt()),
+                publicExponent = reader.readNext(header.cbPublicExp.toInt()),
+                modulus = reader.readNext(header.cbModulus.toInt()),
+                prime1 = reader.readNext(header.cbPrime1.toInt()),
+                prime2 = reader.readNext(header.cbPrime2.toInt()),
+                exponent1 = reader.readNext(header.cbPrime1.toInt()),
+                exponent2 = reader.readNext(header.cbPrime2.toInt()),
+                coefficient = reader.readNext(header.cbPrime1.toInt()),
+                privateExponent = reader.readNext(header.cbModulus.toInt()),
             ).also {
                 reader.ensureComplete()
             }
