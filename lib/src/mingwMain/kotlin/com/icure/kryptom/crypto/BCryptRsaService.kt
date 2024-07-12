@@ -12,6 +12,7 @@ import kotlinx.cinterop.UIntVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
@@ -21,6 +22,7 @@ import platform.windows.BCRYPT_ALG_HANDLE
 import platform.windows.BCRYPT_KEY_HANDLE
 import platform.windows.BCRYPT_KEY_HANDLEVar
 import platform.windows.BCRYPT_OAEP_PADDING_INFO
+import platform.windows.BCRYPT_PSS_PADDING_INFO
 import platform.windows.BCryptDecrypt
 import platform.windows.BCryptDestroyKey
 import platform.windows.BCryptEncrypt
@@ -28,6 +30,8 @@ import platform.windows.BCryptExportKey
 import platform.windows.BCryptFinalizeKeyPair
 import platform.windows.BCryptGenerateKeyPair
 import platform.windows.BCryptImportKeyPair
+import platform.windows.BCryptSignHash
+import platform.windows.BCryptVerifySignature
 
 @OptIn(ExperimentalForeignApi::class)
 object BCryptRsaService : RsaService {
@@ -37,6 +41,7 @@ object BCryptRsaService : RsaService {
     private const val BCRYPT_SHA256_ALGORITHM = "SHA256"
     private const val BCRYPT_SHA1_ALGORITHM = "SHA1"
     private val BCRYPT_PAD_OAEP = 0x04.toUInt()
+    private val BCRYPT_PAD_PSS = 0x08.toUInt()
 
 
     private fun <T> withAlgorithmHandle(
@@ -69,6 +74,19 @@ object BCryptRsaService : RsaService {
         struct.pbLabel = null
         struct.cbLabel = 0.toUInt()
         return Pair(struct.ptr, BCRYPT_PAD_OAEP)
+    }
+
+    private fun MemScope.getPaddingInfo(
+        algorithm: RsaAlgorithm.RsaSignatureAlgorithm,
+    ): Pair<CValuesRef<*>, UInt> {
+        val struct = alloc<BCRYPT_PSS_PADDING_INFO>()
+        struct.pszAlgId = when (algorithm) {
+            RsaAlgorithm.RsaSignatureAlgorithm.PssWithSha256 -> BCRYPT_SHA256_ALGORITHM.wcstr.getPointer(this)
+        }
+        struct.cbSalt = when (algorithm) { // Should be same as hashing algorithm
+            RsaAlgorithm.RsaSignatureAlgorithm.PssWithSha256 -> 32.toUInt()
+        }
+        return Pair(struct.ptr, BCRYPT_PAD_PSS)
     }
 
     private fun <T> withRawKeyHandle(
@@ -285,6 +303,10 @@ object BCryptRsaService : RsaService {
                                 resultBufferSize.ptr,
                                 paddingOption,
                             ).ensureSuccess("BCryptEncrypt do encrypt")
+                            if (result.size != resultBufferSize.value.toInt()) throw PlatformMethodException(
+                                "Size of output changed between get size and do encrypt",
+                                null
+                            )
                         }
                     }
                 }
@@ -326,7 +348,11 @@ object BCryptRsaService : RsaService {
                                 result.size.toUInt(),
                                 resultBufferSize.ptr,
                                 paddingOption,
-                            ).ensureSuccess("BCryptEncrypt do encrypt")
+                            ).ensureSuccess("BCryptDecrypt do decrypt")
+                            if (result.size != resultBufferSize.value.toInt()) throw PlatformMethodException(
+                                "Size of output changed between get size and do decrypt",
+                                null
+                            )
                         }
                     }
                 }
@@ -334,18 +360,83 @@ object BCryptRsaService : RsaService {
         }
     }
 
+    private fun hashDataForAlgorithm(
+        algorithm: RsaAlgorithm.RsaSignatureAlgorithm,
+        data: ByteArray,
+    ): ByteArray = when (algorithm) {
+        RsaAlgorithm.RsaSignatureAlgorithm.PssWithSha256 -> BCryptDigest.sha256(data)
+    }
+
     override suspend fun sign(
         data: ByteArray,
         privateKey: PrivateRsaKey<RsaAlgorithm.RsaSignatureAlgorithm>
-    ): ByteArray {
-        TODO("Not yet implemented")
+    ): ByteArray = withAlgorithmHandle(privateKey.algorithm) { algorithmHandle ->
+        withKeyHandle(privateKey, algorithmHandle) { keyHandle ->
+            hashDataForAlgorithm(privateKey.algorithm, data).usePinned { pinnedDataHash ->
+                memScoped {
+                    val (paddingInfo, paddingOption) = getPaddingInfo(privateKey.algorithm)
+                    val signatureSize = alloc<UIntVar>()
+                    BCryptSignHash(
+                        keyHandle,
+                        paddingInfo,
+                        pinnedDataHash.addressOf(0).reinterpret(),
+                        pinnedDataHash.get().size.toUInt(),
+                        null,
+                        0.toUInt(),
+                        signatureSize.ptr,
+                        paddingOption
+                    ).ensureSuccess("BCryptSignHash get signature size")
+                    val result = ByteArray(signatureSize.value.toInt())
+                    result.usePinned { pinnedResult ->
+                        BCryptSignHash(
+                            keyHandle,
+                            paddingInfo,
+                            pinnedDataHash.addressOf(0).reinterpret(),
+                            pinnedDataHash.get().size.toUInt(),
+                            pinnedResult.addressOf(0).reinterpret(),
+                            result.size.toUInt(),
+                            signatureSize.ptr,
+                            paddingOption
+                        ).ensureSuccess("BCryptSignHash do sign")
+                    }
+                    if (result.size != signatureSize.value.toInt()) throw PlatformMethodException(
+                        "Size of signature changed between get size and do sign",
+                        null
+                    )
+                    result
+                }
+            }
+        }
     }
 
     override suspend fun verifySignature(
         signature: ByteArray,
         data: ByteArray,
         publicKey: PublicRsaKey<RsaAlgorithm.RsaSignatureAlgorithm>
-    ): Boolean {
-        TODO("Not yet implemented")
+    ): Boolean = withAlgorithmHandle(publicKey.algorithm) { algorithmHandle ->
+        withKeyHandle(publicKey, algorithmHandle) { keyHandle ->
+            val pinnedDataHash = hashDataForAlgorithm(publicKey.algorithm, data).pin()
+            val pinnedSignature = signature.pin()
+            try {
+                memScoped {
+                    val (paddingInfo, paddingOption) = getPaddingInfo(publicKey.algorithm)
+                    val verifyResult = BCryptVerifySignature(
+                        keyHandle,
+                        paddingInfo,
+                        pinnedDataHash.addressOf(0).reinterpret(),
+                        pinnedDataHash.get().size.toUInt(),
+                        pinnedSignature.addressOf(0).reinterpret(),
+                        pinnedSignature.get().size.toUInt(),
+                        paddingOption
+                    )
+                    // Only -1073700864 / 0xC000A000 is supposed to be the status for unverified signature, but I'm
+                    // consistently getting C000000D instead...
+                    verifyResult == 0
+                }
+            } finally {
+                pinnedDataHash.unpin()
+                pinnedSignature.unpin()
+            }
+        }
     }
 }

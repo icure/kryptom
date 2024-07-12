@@ -17,12 +17,19 @@ import platform.windows.BCryptDestroyHash
 import platform.windows.BCryptFinishHash
 import platform.windows.BCryptHashData
 
-@OptIn(ExperimentalForeignApi::class)
 object BCryptDigestService : DigestService {
-
     override suspend fun sha256(
         data: ByteArray
-    ): ByteArray = withAlgorithmHandle(BCryptAlgorithm.BCRYPT_SHA256_ALGORITHM) { algorithmHandle ->
+    ): ByteArray = BCryptDigest.sha256(data)
+}
+
+/**
+ * The non-multiplatform service, same as the other but the methods are not suspend
+ */
+@OptIn(ExperimentalForeignApi::class)
+internal object BCryptDigest {
+    fun sha256(data: ByteArray): ByteArray =
+        withAlgorithmHandle(BCryptAlgorithm.BCRYPT_SHA256_ALGORITHM) { algorithmHandle ->
             memScoped {
                 val hashingBufferSize = algorithmHandle.getBCryptProperty(BCryptProperty.ObjectLengthProperty)
                 val hashHandle = alloc<BCRYPT_HASH_HANDLEVar>()
