@@ -103,7 +103,11 @@ data class BCryptRsaKeyHeader(
 }
 
 private fun byteArrayToJwkString(bytes: ByteArray): String =
-    base64UrlEncode(bytes).dropLastWhile { it == '=' }
+    base64UrlEncode(bytes.let {
+        if (it[0] == 0.toByte()) {
+            it.dropWhile { b -> b == 0.toByte() }.toByteArray()
+        } else it
+    }).dropLastWhile { it == '=' }
 
 class BCryptRsaPublicKeyBlob(
     val publicExponent: ByteArray,
