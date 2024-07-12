@@ -124,18 +124,23 @@ private fun decodeBase64(input: String, lookupTable: IntArray): ByteArray {
 	val packet = buildPacket {
 		writeText(unpaddedData)
 	}
-	val data = ByteArray(4)
+	val bufferSize = 4
+	val data = ByteArray(bufferSize)
 	return buildPacket {
 		while (packet.remaining > 0) {
 			val read = packet.readAvailable(data)
 
-			val chunk = data.foldIndexed(0) { index, result, current ->
+			val chunk = data.let {
+				if(read < bufferSize) {
+					it.sliceArray(0 until read)
+				} else it
+			}.foldIndexed(0) { index, result, current ->
 				val found = lookupTable.getOrNull(current.toInt())?.takeIf { it >= 0 }
 					?: throw IllegalArgumentException("Invalid base64 character: $current")
 				result or (found shl ((3 - index) * 6))
 			}
 
-			for (index in data.size - 2 downTo (data.size - read)) {
+			for (index in bufferSize - 2 downTo (bufferSize - read)) {
 				val origin = (chunk shr (8 * index)) and 0xff
 				writeByte(origin.toByte())
 			}
