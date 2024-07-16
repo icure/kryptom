@@ -31,7 +31,9 @@ object OpensslHmacService : HmacService {
         key.rawKey
 
     override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-        require(bytes.size >= algorithm.minimumKeySize) { "Invalid key size for algorithm $algorithm" }
+        require(bytes.size >= algorithm.minimumKeySize) {
+            "Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+        }
         return HmacKey(bytes.copyOf(), algorithm)
     }
 

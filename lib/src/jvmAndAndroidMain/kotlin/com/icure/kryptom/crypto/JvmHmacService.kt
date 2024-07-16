@@ -25,7 +25,9 @@ object JvmHmacService : HmacService {
 	}
 
 	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-		require(bytes.size >= algorithm.minimumKeySize) { "Invalid key length for algorithm $algorithm: ${bytes.size}" }
+		require(bytes.size >= algorithm.minimumKeySize) {
+			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+		}
 		return HmacKey(SecretKeySpec(bytes, algorithm.name), algorithm)
 	}
 
