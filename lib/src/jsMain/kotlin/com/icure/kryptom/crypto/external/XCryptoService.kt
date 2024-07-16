@@ -69,7 +69,7 @@ private class DigestServiceAdapter(
 private class HmacServiceAdapter(
 	private val service: XHmacService
 ) : HmacService {
-	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A): HmacKey<A> =
+	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> =
 		service.generateKey(algorithm.identifier).await().toKryptom(algorithm)
 
 	override suspend fun exportKey(key: HmacKey<*>): ByteArray =

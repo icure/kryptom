@@ -20,19 +20,23 @@ import libcrypto.HMAC_Update
 
 @OptIn(ExperimentalForeignApi::class)
 object OpensslHmacService : HmacService {
-    override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A): HmacKey<A> =
-        HmacKey(OpensslStrongRandom.randomBytes(algorithm.recommendedKeySize), algorithm)
+    override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
+        require(keySize == null || keySize >= algorithm.minimumKeySize) {
+            "Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+        }
+        return HmacKey(OpensslStrongRandom.randomBytes(keySize ?: algorithm.recommendedKeySize), algorithm)
+    }
 
     override suspend fun exportKey(key: HmacKey<*>): ByteArray =
         key.rawKey
 
     override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-        require(bytes.size == algorithm.recommendedKeySize) { "Invalid key size for algorithm $algorithm" }
+        require(bytes.size >= algorithm.minimumKeySize) { "Invalid key size for algorithm $algorithm" }
         return HmacKey(bytes.copyOf(), algorithm)
     }
 
     override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray {
-        require(key.algorithm == HmacAlgorithm.HmacSha512) {
+        require(key.algorithm == HmacAlgorithm.HmacSha512 || key.algorithm == HmacAlgorithm.HmacSha256) {
             "Unsupported hmac algorithm: ${key.algorithm}"
         }
         val ctx = HMAC_CTX_new()

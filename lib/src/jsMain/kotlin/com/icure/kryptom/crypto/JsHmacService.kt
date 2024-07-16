@@ -11,26 +11,30 @@ object JsHmacService : HmacService {
 	private const val ALGORITHM_NAME = "HMAC"
 	private const val RAW = "raw"
 
-	private fun paramsForAlgorithm(algorithm: HmacAlgorithm) =
+	private fun paramsForAlgorithm(algorithm: HmacAlgorithm, keySize: Int) =
 		json(
 			"name" to ALGORITHM_NAME,
 			"hash" to when (algorithm) {
 				HmacAlgorithm.HmacSha512 -> "SHA-512"
+				HmacAlgorithm.HmacSha256 -> "SHA-256"
 			},
-			"length" to algorithm.recommendedKeySize * 8
+			"length" to keySize * 8
 		)
 
-	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A): HmacKey<A> {
+	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
+		require(keySize == null || keySize >= algorithm.minimumKeySize) {
+			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+		}
 		val generatedKey = jsCrypto.subtle.generateKey(
-			paramsForAlgorithm(algorithm),
+			paramsForAlgorithm(algorithm, keySize ?: algorithm.recommendedKeySize),
 			true,
 			arrayOf("sign", "verify")
 		).await()
 		val generatedKeySize = exportRawKey(generatedKey).byteLength
-		if (generatedKeySize != algorithm.recommendedKeySize) throw AssertionError(
+		if (generatedKeySize < algorithm.minimumKeySize) throw AssertionError(
 			"Invalid key size for algorithm $algorithm, got $generatedKeySize"
 		)
-		return HmacKey(generatedKey, algorithm)
+		return HmacKey(generatedKey, generatedKeySize, algorithm)
 	}
 
 	override suspend fun exportKey(key: HmacKey<*>): ByteArray =
@@ -40,22 +44,23 @@ object JsHmacService : HmacService {
 		jsCrypto.subtle.exportKey(RAW, rawKey).await() as ArrayBuffer
 
 	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-		require(bytes.size == algorithm.recommendedKeySize) { "Invalid key size for algorithm $algorithm" }
+		require(bytes.size >= algorithm.minimumKeySize) { "Invalid key size for algorithm $algorithm" }
 		return HmacKey(
 			jsCrypto.subtle.importKey(
 				RAW,
 				bytes.toArrayBuffer(),
-				paramsForAlgorithm(algorithm),
+				paramsForAlgorithm(algorithm, bytes.size),
 				true,
 				arrayOf("sign", "verify")
 			).await(),
+			bytes.size,
 			algorithm
 		)
 	}
 
 	override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray {
 		return jsCrypto.subtle.sign(
-			paramsForAlgorithm(key.algorithm),
+			paramsForAlgorithm(key.algorithm, key.keySize),
 			key.key,
 			data.toArrayBuffer()
 		).await().toByteArray()
@@ -67,7 +72,7 @@ object JsHmacService : HmacService {
 		key: HmacKey<*>
 	): Boolean {
 		return jsCrypto.subtle.verify(
-			paramsForAlgorithm(key.algorithm),
+			paramsForAlgorithm(key.algorithm, key.keySize),
 			key.key,
 			signature.toArrayBuffer(),
 			data.toArrayBuffer()

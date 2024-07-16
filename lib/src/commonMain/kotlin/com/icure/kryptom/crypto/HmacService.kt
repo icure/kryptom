@@ -2,9 +2,14 @@ package com.icure.kryptom.crypto
 
 interface HmacService {
 	/**
-	 * Generates a new hmac key for a specific algorithm. The key size is determined by the algorithm.
+	 * Generates a new hmac key for a specific algorithm.
+	 *
+	 * @param algorithm the [HmacAlgorithm].
+	 * @param keySize the key size. If null (default behaviour), [HmacAlgorithm.recommendedKeySize] will be used.
+	 * Note: for security reasons, the key size cannot be less than [HmacAlgorithm.minimumKeySize]
+	 * @throws IllegalArgumentException if [keySize] is less than [HmacAlgorithm.minimumKeySize]
 	 */
-	suspend fun <A : HmacAlgorithm> generateKey(algorithm: A): HmacKey<A>
+	suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int? = null): HmacKey<A>
 
 	/**
 	 * Exports a key to a byte array.
@@ -12,7 +17,7 @@ interface HmacService {
 	suspend fun exportKey(key: HmacKey<*>): ByteArray
 
 	/**
-	 * Imports a key from a byte array. The key size must match the algorithm.
+	 * Imports a key from a byte array.
 	 */
 	suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A>
 
