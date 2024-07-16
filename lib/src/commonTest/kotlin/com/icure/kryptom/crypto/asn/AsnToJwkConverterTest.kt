@@ -3,6 +3,7 @@ package com.icure.kryptom.crypto.asn
 import com.icure.kryptom.crypto.RsaAlgorithm
 import com.icure.kryptom.crypto.RsaService
 import com.icure.kryptom.crypto.defaultCryptoService
+import com.icure.kryptom.utils.base64UrlDecode
 import com.icure.kryptom.utils.base64UrlEncode
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe

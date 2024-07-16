@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import io.ktor.utils.io.charsets.Charsets
 import io.ktor.utils.io.core.String
 import io.ktor.utils.io.core.toByteArray
+import kotlin.random.Random
 
 // The keys and are generated for test purpose only, they are not real secrets
 
@@ -101,5 +102,35 @@ class AesServiceTest : StringSpec({
 			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
 			defaultCryptoService.aes.exportKey(key).size shouldBe keySize.byteSize
 		}
+	}
+
+	"Encrypt, decrypt and import methods should not modify input buffers" {
+		val iv = Random.Default.nextBytes(AesService.IV_BYTE_LENGTH)
+		val ivCopy = iv.copyOf()
+		val data = Random.Default.nextBytes(20)
+		val dataCopy = data.copyOf()
+		val key = Random.Default.nextBytes(AesService.KeySize.Aes256.byteSize)
+		val keyCopy = key.copyOf()
+		val importedKey = defaultCryptoService.aes.loadKey(AesAlgorithm.CbcWithPkcs7Padding, key)
+		val ivAndEncrypted = defaultCryptoService.aes.encrypt(
+			data,
+			importedKey,
+			iv
+		)
+		val ivAndEncryptedCopy = ivAndEncrypted.copyOf()
+		val ivAndEncryptedSecond = defaultCryptoService.aes.encrypt(
+			data,
+			importedKey,
+			iv
+		)
+		defaultCryptoService.aes.decrypt(
+			ivAndEncrypted,
+			importedKey
+		)
+		key.toList() shouldBe keyCopy.toList()
+		iv.toList() shouldBe ivCopy.toList()
+		data.toList() shouldBe dataCopy.toList()
+		ivAndEncrypted.toList() shouldBe ivAndEncryptedCopy.toList()
+		ivAndEncryptedSecond.toList() shouldBe ivAndEncryptedCopy.toList()
 	}
 })
