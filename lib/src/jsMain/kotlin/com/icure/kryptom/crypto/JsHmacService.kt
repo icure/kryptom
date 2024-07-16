@@ -25,14 +25,15 @@ object JsHmacService : HmacService {
 		require(keySize == null || keySize >= algorithm.minimumKeySize) {
 			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
 		}
+		val requestedKeySize = keySize ?: algorithm.recommendedKeySize
 		val generatedKey = jsCrypto.subtle.generateKey(
 			paramsForAlgorithm(algorithm, keySize ?: algorithm.recommendedKeySize),
 			true,
 			arrayOf("sign", "verify")
 		).await()
 		val generatedKeySize = exportRawKey(generatedKey).byteLength
-		if (generatedKeySize < algorithm.minimumKeySize) throw AssertionError(
-			"Invalid key size for algorithm $algorithm, got $generatedKeySize"
+		if (generatedKeySize != requestedKeySize) throw AssertionError(
+			"Invalid key size for algorithm $algorithm, expected $requestedKeySize got $generatedKeySize"
 		)
 		return HmacKey(generatedKey, generatedKeySize, algorithm)
 	}
