@@ -34,5 +34,6 @@ actual class AesKey<out A : AesAlgorithm>(
  */
 actual class HmacKey<out A : HmacAlgorithm>(
 	internal val key: dynamic,
+	internal val keySize: Int,
 	actual val algorithm: A
 )

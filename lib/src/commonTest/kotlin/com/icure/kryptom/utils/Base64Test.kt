@@ -6,7 +6,13 @@ import io.kotest.matchers.shouldBe
 import io.ktor.utils.io.charsets.Charsets
 import io.ktor.utils.io.core.toByteArray
 
-val canonicalData: List<Pair<String, ByteArray>> = listOf(
+val base64CanonicalData: List<Pair<String, ByteArray>> = listOf(
+	"Zg==" to "f",
+	"Zm8=" to "fo",
+	"Zm9v" to "foo",
+	"Zm9vYg==" to "foob",
+	"Zm9vYmE=" to "fooba",
+	"Zm9vYmFy" to "foobar",
 	"TG9yZW0=" to "Lorem",
 	"TG9yZW0gaXBzdW0gZG9sb3Igc2l0" to "Lorem ipsum dolor sit",
 	"R2lvdmFubmkgR2lvcmdpbw==" to "Giovanni Giorgio",
@@ -39,11 +45,13 @@ val invalidBase64: List<String> = listOf(
 
 class Base64Test : StringSpec({
 	"Base 64 strings should be encoded to the expected values" {
-		canonicalData.forEach { base64Encode(it.second) shouldBe it.first }
+		base64CanonicalData.forEach { base64Encode(it.second) shouldBe it.first }
 	}
 
 	"Base 64 strings should be decoded to the expected values" {
-		canonicalData.forEach { base64Decode(it.first).toList() shouldBe it.second.toList() }
+		base64CanonicalData.forEach {
+			base64Decode(it.first).also { println(it.decodeToString()) }.toList() shouldBe it.second.toList()
+		}
 	}
 
 	"Base 64 decode should work with missing padding" {

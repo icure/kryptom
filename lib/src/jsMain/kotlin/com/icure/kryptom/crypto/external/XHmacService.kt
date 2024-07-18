@@ -39,6 +39,7 @@ external interface XHmacService {
 @JsExport
 external interface XHmacKey {
 	val key: dynamic
+	val keySize: Int
 	val algorithm: String
 }
 
@@ -46,7 +47,7 @@ fun <A : HmacAlgorithm> XHmacKey.toKryptom(algorithm: A): HmacKey<A> {
 	if (this.algorithm != algorithm.identifier) {
 		throw AssertionError("Algorithm mismatch: ${this.algorithm} != ${algorithm.identifier}")
 	}
-	return HmacKey(key, algorithm)
+	return HmacKey(key, keySize, algorithm)
 }
 
 // TODO switch to @JsPlainObject on kotlin 2

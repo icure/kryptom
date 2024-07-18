@@ -199,6 +199,12 @@ sealed interface HmacAlgorithm {
 	val recommendedKeySize: Int
 
 	/**
+	 * The minimum key size for this algorithm in bytes, as specified in the [HMAC RFC](https://www.rfc-editor.org/rfc/rfc2104#section-3).
+	 * A key which size is under this length decrease the security strength of the function.
+	 */
+	val minimumKeySize: Int
+
+	/**
 	 * The size of the digest produced by this algorithm in bytes.
 	 */
 	val digestSize: Int
@@ -213,13 +219,25 @@ sealed interface HmacAlgorithm {
 	 */
 	data object HmacSha512 : HmacAlgorithm {
 		override val recommendedKeySize: Int = 128
+		override val minimumKeySize: Int = 64
 		override val digestSize: Int = 64
+		override val identifier: String = Identifiers.HMAC_SHA_512
+	}
+
+	/**
+	 * Hmac with sha 256.
+	 */
+	data object HmacSha256 : HmacAlgorithm {
+		override val recommendedKeySize: Int = 64
+		override val minimumKeySize: Int = 32
+		override val digestSize: Int = 32
 		override val identifier: String = Identifiers.HMAC_SHA_256
 	}
 
 	companion object {
 		private object Identifiers {
-			const val HMAC_SHA_256 = "HmacSha512"
+			const val HMAC_SHA_512 = "HmacSha512"
+			const val HMAC_SHA_256 = "HmacSha256"
 		}
 
 		/**
@@ -230,7 +248,8 @@ sealed interface HmacAlgorithm {
 		 */
 		@Throws(IllegalArgumentException::class)
 		fun fromIdentifier(identifier: String): HmacAlgorithm = when (identifier) {
-			Identifiers.HMAC_SHA_256 -> HmacSha512
+			Identifiers.HMAC_SHA_512 -> HmacSha512
+			Identifiers.HMAC_SHA_256 -> HmacSha256
 			else -> throw IllegalArgumentException("Unknown hmac algorithm $identifier")
 		}
 	}

@@ -23,18 +23,22 @@ object BCryptHmacService : HmacService {
     // https://github.com/tpn/winsdk-10/blob/9b69fd26ac0c7d0b83d378dba01080e93349c2ed/Include/10.0.14393.0/shared/bcrypt.h#L884C8-L884C59
     private const val BCRYPT_ALG_HANDLE_HMAC_FLAG = 0x08
 
-    override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A): HmacKey<A> =
-        HmacKey(
+    override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
+        require(keySize == null || keySize >= algorithm.minimumKeySize) {
+            "Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+        }
+        return HmacKey(
             BCryptStrongRandom.randomBytes(algorithm.recommendedKeySize),
             algorithm
         )
+    }
 
     override suspend fun exportKey(key: HmacKey<*>): ByteArray =
         key.rawKey.copyOf()
 
     override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-        require(bytes.size == algorithm.recommendedKeySize) {
-            "Key for algotithm $algorithm should have size ${algorithm.recommendedKeySize} but was ${bytes.size}"
+        require(bytes.size >= algorithm.minimumKeySize) {
+            "Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
         }
         return HmacKey(
             bytes.copyOf(),
@@ -48,6 +52,11 @@ object BCryptHmacService : HmacService {
     ): T = when (hmacAlgorithm) {
         HmacAlgorithm.HmacSha512 -> withAlgorithmHandle(
             BCryptAlgorithm.BCRYPT_SHA512_ALGORITHM,
+            flag = BCRYPT_ALG_HANDLE_HMAC_FLAG,
+            block = block
+        )
+        HmacAlgorithm.HmacSha256 -> withAlgorithmHandle(
+            BCryptAlgorithm.BCRYPT_SHA256_ALGORITHM,
             flag = BCRYPT_ALG_HANDLE_HMAC_FLAG,
             block = block
         )

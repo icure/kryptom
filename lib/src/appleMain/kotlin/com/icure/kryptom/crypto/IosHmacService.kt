@@ -6,22 +6,30 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.refTo
 import platform.CoreCrypto.CCHmac
+import platform.CoreCrypto.kCCHmacAlgSHA256
 import platform.CoreCrypto.kCCHmacAlgSHA512
 
 object IosHmacService : HmacService {
-	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A): HmacKey<A> =
-		HmacKey(IosStrongRandom.randomBytes(algorithm.recommendedKeySize), algorithm)
+	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
+		require(keySize == null || keySize >= algorithm.minimumKeySize) {
+			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+		}
+		return HmacKey(IosStrongRandom.randomBytes(keySize ?: algorithm.recommendedKeySize), algorithm)
+	}
+
 
 	override suspend fun exportKey(key: HmacKey<*>): ByteArray =
 		key.rawKey.copyOf()
 
 	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-		require(bytes.size == algorithm.recommendedKeySize) { "Invalid key size for algorithm $algorithm" }
+		require(bytes.size >= algorithm.minimumKeySize) {
+			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+		}
 		return HmacKey(bytes.copyOf(), algorithm)
 	}
 
 	override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray {
-		require(key.algorithm == HmacAlgorithm.HmacSha512) {
+		require(key.algorithm == HmacAlgorithm.HmacSha512 || key.algorithm == HmacAlgorithm.HmacSha256) {
 			"Unsupported hmac algorithm: ${key.algorithm}"
 		}
 		return memScoped {
@@ -48,5 +56,6 @@ object IosHmacService : HmacService {
 
 	private val HmacAlgorithm.coreCryptoAlgorithm: UInt get() = when (this) {
 		HmacAlgorithm.HmacSha512 -> kCCHmacAlgSHA512
+		HmacAlgorithm.HmacSha256 -> kCCHmacAlgSHA256
 	}
 }
