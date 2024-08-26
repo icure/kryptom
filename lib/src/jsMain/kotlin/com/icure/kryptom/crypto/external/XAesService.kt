@@ -5,7 +5,6 @@ import com.icure.kryptom.crypto.AesKey
 import com.icure.kryptom.crypto.AesService.Companion.IV_BYTE_LENGTH
 import kotlin.js.Promise
 
-@JsExport
 external interface XAesService {
 	/**
 	 * Generates a new aes key of the specified size (128 bits by default)
@@ -65,7 +64,7 @@ external interface XAesService {
 
 @JsExport
 external interface XAesKey {
-	val key: dynamic
+	val aesKey: dynamic
 	val algorithm: String
 }
 
@@ -73,13 +72,17 @@ fun <A : AesAlgorithm> XAesKey.toKryptom(algorithm: A): AesKey<A> {
 	if (this.algorithm != algorithm.identifier) {
 		throw AssertionError("Algorithm mismatch: ${this.algorithm} != ${algorithm.identifier}")
 	}
-	return AesKey(key, algorithm)
+	return AesKey(aesKey, algorithm)
+}
+
+fun XAesKey.toKryptom(): AesKey<AesAlgorithm> {
+	return AesKey(aesKey, AesAlgorithm.fromIdentifier(algorithm))
 }
 
 // TODO switch to @JsPlainObject on kotlin 2
-@Suppress("UNUSED_VARIABLE")
+@Suppress("UNUSED_VARIABLE", "UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
 fun AesKey<*>.toExternal(): XAesKey {
 	val thisKey = this.cryptoKey
 	val algorithmIdentifier = this.algorithm.identifier
-	return js("({key: thisKey, algorithm: algorithmIdentifier})")
+	return js("({aesKey: thisKey, algorithm: algorithmIdentifier})") as XAesKey
 }

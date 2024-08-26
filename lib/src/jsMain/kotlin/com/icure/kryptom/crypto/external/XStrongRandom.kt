@@ -1,6 +1,5 @@
 package com.icure.kryptom.crypto.external
 
-@JsExport
 external interface XStrongRandom {
 	/**
 	 * Generates a sequence of random bytes.
