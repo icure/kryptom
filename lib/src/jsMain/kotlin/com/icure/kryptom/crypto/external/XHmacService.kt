@@ -35,7 +35,6 @@ external interface XHmacService {
 	): Promise<Boolean>
 }
 
-@JsExport
 external interface XHmacKey {
 	val hmacKey: dynamic
 	val keySize: Int
