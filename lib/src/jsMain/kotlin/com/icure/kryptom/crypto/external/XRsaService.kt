@@ -111,7 +111,6 @@ external interface XRsaService {
 	fun loadPublicKeyJwk(publicKeyJwk: JsonWebKey): Promise<XPublicRsaKey>
 }
 
-@JsExport
 external interface XRsaKeypair {
 	val private: XPrivateRsaKey
 	val public: XPublicRsaKey
@@ -162,7 +161,6 @@ fun PrivateRsaKey<*>.toExternal(): XPrivateRsaKey {
 	return js("({privateKey: thisKey, algorithm: algorithmIdentifier})") as XPrivateRsaKey
 }
 
-@JsExport
 external interface XPublicRsaKey {
 	val publicKey: dynamic
 	val algorithm: String

@@ -62,7 +62,6 @@ external interface XAesService {
 	fun decrypt(ivAndEncryptedData: ByteArray, key: XAesKey): Promise<ByteArray>
 }
 
-@JsExport
 external interface XAesKey {
 	val aesKey: dynamic
 	val algorithm: String
