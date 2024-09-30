@@ -128,7 +128,6 @@ fun RsaKeypair<*>.toExternal(): XRsaKeypair {
 	return js("({private: private, public: public})")
 }
 
-@JsExport
 external interface XPrivateRsaKey {
 	val privateKey: dynamic
 	val algorithm: String
