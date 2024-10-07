@@ -40,7 +40,7 @@ interface AesService {
 	}
 
 	/**
-	 * Generates a new aes key of the specified size (128 bits by default)
+	 * Generates a new aes key of the specified size (256 bits by default)
 	 * @param size size of the key.
 	 * @return the generated key.
 	 */
