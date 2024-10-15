@@ -3,8 +3,6 @@ package com.icure.kryptom.utils
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.toByteArray
 
 val base64CanonicalData: List<Pair<String, ByteArray>> = listOf(
 	"Zg==" to "f",
@@ -21,7 +19,7 @@ val base64CanonicalData: List<Pair<String, ByteArray>> = listOf(
 		"U29tZXRoaW5nIHZlcnkgbG9uZyBqdXN0IHRvIG1ha2Ugc3VyZSB0aGVyZSBpcyBubyBsaW5lIHdyYXBwaW5n",
 		"Something very long just to make sure there is no line wrapping"
 	),
-).map { it.first to it.second.toByteArray(Charsets.UTF_8) }
+).map { it.first to it.second.encodeToByteArray() }
 
 val invalidPaddingBase64: List<String> = listOf(
 	"TG9yZW0==",
@@ -34,7 +32,7 @@ val invalidPaddingBase64: List<String> = listOf(
 val missingPadding: List<Pair<String, ByteArray>> = listOf(
 	"TG9yZW0" to "Lorem",
 	"R2lvdmFubmkgR2lvcmdpbw" to "Giovanni Giorgio",
-).map { it.first to it.second.toByteArray(Charsets.UTF_8) }
+).map { it.first to it.second.encodeToByteArray() }
 
 val invalidBase64: List<String> = listOf(
 	"TG9yZW0\ngaXBzdW0K",
@@ -67,7 +65,7 @@ class Base64Test : StringSpec({
 	}
 
 	"Base 64 with URL safe alphabet should work" {
-		val data = ">?>?>?".toByteArray(Charsets.UTF_8)
+		val data = ">?>?>?".encodeToByteArray()
 		val expectedEncoded = "Pj8-Pz4_"
 		base64UrlEncode(data) shouldBe expectedEncoded
 		base64UrlDecode(expectedEncoded).toList() shouldBe data.toList()

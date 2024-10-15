@@ -4,8 +4,6 @@ import com.icure.kryptom.utils.base64Decode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.toByteArray
 import kotlin.random.Random
 
 
@@ -85,14 +83,14 @@ class HmacServiceTest : StringSpec({
 			val key = defaultCryptoService.hmac.generateKey(algorithm)
 			val wrongKey = defaultCryptoService.hmac.generateKey(algorithm)
 			data.forEach { data ->
-				val dataBytes = data.toByteArray(Charsets.UTF_8)
+				val dataBytes = data.encodeToByteArray()
 				val signature = defaultCryptoService.hmac.sign(dataBytes, key)
 				defaultCryptoService.hmac.verify(signature, dataBytes, key) shouldBe true
 				defaultCryptoService.hmac.verify(signature, dataBytes, wrongKey) shouldBe false
 				data.mutations().forEach { mutatedData ->
 					defaultCryptoService.hmac.verify(
 						signature,
-						mutatedData.toByteArray(Charsets.UTF_8),
+						mutatedData.encodeToByteArray(),
 						key
 					) shouldBe false
 				}
@@ -103,13 +101,13 @@ class HmacServiceTest : StringSpec({
 			val keyBytes = defaultCryptoService.hmac.exportKey(defaultCryptoService.hmac.generateKey(algorithm))
 			val key = defaultCryptoService.hmac.loadKey(algorithm, keyBytes)
 			data.forEach { data ->
-				val dataBytes = data.toByteArray(Charsets.UTF_8)
+				val dataBytes = data.encodeToByteArray()
 				val signature = defaultCryptoService.hmac.sign(dataBytes, key)
 				defaultCryptoService.hmac.verify(signature, dataBytes, key) shouldBe true
 				data.mutations().forEach { mutatedData ->
 					defaultCryptoService.hmac.verify(
 						signature,
-						mutatedData.toByteArray(Charsets.UTF_8),
+						mutatedData.encodeToByteArray(),
 						key
 					) shouldBe false
 				}
@@ -126,20 +124,20 @@ class HmacServiceTest : StringSpec({
 				val signatureBytes = base64Decode(signature)
 				defaultCryptoService.hmac.verify(
 					signatureBytes,
-					dataString.toByteArray(Charsets.UTF_8),
+					dataString.encodeToByteArray(),
 					key
 				) shouldBe true
 				dataString.mutations().forEach { mutatedData ->
 					defaultCryptoService.hmac.verify(
 						signatureBytes,
-						mutatedData.toByteArray(Charsets.UTF_8),
+						mutatedData.encodeToByteArray(),
 						key
 					) shouldBe false
 				}
 				val wrongKey = importedKeys[(keyIndex + 1) % importedKeys.size]
 				defaultCryptoService.hmac.verify(
 					signatureBytes,
-					dataString.toByteArray(Charsets.UTF_8),
+					dataString.encodeToByteArray(),
 					wrongKey
 				) shouldBe false
 			}

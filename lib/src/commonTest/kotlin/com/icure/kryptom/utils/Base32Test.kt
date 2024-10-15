@@ -3,8 +3,6 @@ package com.icure.kryptom.utils
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.toByteArray
 
 val base32CanonicalData: List<Pair<String, ByteArray>> = listOf(
 	"MY======" to "f",
@@ -20,7 +18,7 @@ val base32CanonicalData: List<Pair<String, ByteArray>> = listOf(
 		"KNXW2ZLUNBUW4ZZAOZSXE6JANRXW4ZZANJ2XG5BAORXSA3LBNNSSA43VOJSSA5DIMVZGKIDJOMQG43ZANRUW4ZJAO5ZGC4DQNFXGO===",
 		"Something very long just to make sure there is no line wrapping"
 	)
-).map { it.first to it.second.toByteArray(Charsets.UTF_8) }
+).map { it.first to it.second.encodeToByteArray() }
 
 val invalidPaddingBase32: List<String> = listOf(
 	"MZXW6YQ==",
@@ -37,7 +35,7 @@ val invalidPaddingBase32: List<String> = listOf(
 val missingPaddingBase32: List<Pair<String, ByteArray>> = listOf(
 	"MZXW6" to "foo",
 	"I5UW65TBNZXGSICHNFXXEZ3JN4" to "Giovanni Giorgio",
-).map { it.first to it.second.toByteArray(Charsets.UTF_8) }
+).map { it.first to it.second.encodeToByteArray() }
 
 val invalidBase32: List<String> = listOf(
 	"MZXW6Y\nTB",

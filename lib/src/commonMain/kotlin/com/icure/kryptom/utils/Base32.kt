@@ -1,9 +1,9 @@
 package com.icure.kryptom.utils
 
-import io.ktor.utils.io.core.buildPacket
-import io.ktor.utils.io.core.readAvailable
-import io.ktor.utils.io.core.readBytes
-import io.ktor.utils.io.core.writeText
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
+import kotlinx.io.writeString
+
 
 // Encoding implementation comes from ktor utils https://raw.githubusercontent.com/ktorio/ktor/5f27f303bd26a361430b45fe173434d35986f52a/ktor-utils/common/src/io/ktor/util/Base64.kt
 // with minimal changes to allow for custom alphabet
@@ -99,14 +99,14 @@ private fun decodeBase32(input: String, lookupTable: LongArray): ByteArray {
 		input.substring(0, lastPadIndex)
 	} else input
 
-	val packet = buildPacket {
-		writeText(unpaddedData)
+	val packet = Buffer().apply {
+		writeString(unpaddedData)
 	}
 	val bufferSize = 8
 	val data = ByteArray(bufferSize)
-	return buildPacket {
-		while (packet.remaining > 0) {
-			val read = packet.readAvailable(data)
+	return Buffer().apply {
+		while (!packet.exhausted()) {
+			val read = packet.readAtMostTo(data)
 
 			val chunk = data.let {
 				if(read < bufferSize) {
@@ -132,5 +132,5 @@ private fun decodeBase32(input: String, lookupTable: LongArray): ByteArray {
 				writeByte(origin.toByte())
 			}
 		}
-	}.readBytes()
+	}.readByteArray()
 }

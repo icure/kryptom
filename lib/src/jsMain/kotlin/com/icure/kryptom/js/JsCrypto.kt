@@ -1,9 +1,22 @@
 package com.icure.kryptom.js
 
-import io.ktor.util.PlatformUtils
 import org.khronos.webgl.ArrayBuffer
 import kotlin.js.Json
 import kotlin.js.Promise
+
+// https://raw.githubusercontent.com/ktorio/ktor/810b8134963820d634e4d4e852854afc6b7de417/ktor-utils/jsAndWasmShared/src/io/ktor/util/PlatformUtilsJs.kt
+//language=JavaScript
+private fun hasNodeApi(): Boolean = js(
+	"""
+(typeof process !== 'undefined' 
+    && process.versions != null 
+    && process.versions.node != null) ||
+(typeof window !== 'undefined' 
+    && typeof window.process !== 'undefined' 
+    && window.process.versions != null 
+    && window.process.versions.node != null)
+"""
+)
 
 /**
  * Implementation based on
@@ -11,7 +24,7 @@ import kotlin.js.Promise
  * Global instance of [Crypto].
  */
 internal val jsCrypto: Crypto by lazy {
-	val loaded = if (PlatformUtils.IS_NODE) {
+	val loaded = if (hasNodeApi()) {
 		//language=JavaScript
 		js("""
 			typeof crypto != 'undefined' 

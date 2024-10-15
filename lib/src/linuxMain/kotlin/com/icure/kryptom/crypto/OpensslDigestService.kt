@@ -2,7 +2,6 @@ package com.icure.kryptom.crypto
 
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
-import io.ktor.util.Digest
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc

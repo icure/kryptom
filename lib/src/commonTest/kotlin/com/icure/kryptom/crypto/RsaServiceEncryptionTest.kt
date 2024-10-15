@@ -6,9 +6,6 @@ import com.icure.kryptom.utils.base64Decode
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.String
-import io.ktor.utils.io.core.toByteArray
 import kotlin.random.Random
 
 // Algorithm -> ((dataIndex, keyIndex) -> data[dataIndex] encrypted by sampleRsaKeys[keyIndex])
@@ -162,11 +159,11 @@ class RsaServiceEncryptionTest : StringSpec({
 				val keys = defaultCryptoService.rsa.generateKeyPair(encryptionAlgorithm, keySize)
 				data.trimToKeySize(keySize, encryptionAlgorithm).forEach { d ->
 					val encrypted = defaultCryptoService.rsa.encrypt(
-						d.toByteArray(Charsets.UTF_8),
+						d.encodeToByteArray(),
 						keys.public
 					)
 					val decrypted = defaultCryptoService.rsa.decrypt(encrypted, keys.private)
-					String(decrypted, charset = Charsets.UTF_8) shouldBe d
+					decrypted.decodeToString() shouldBe d
 				}
 			}
 		}
@@ -186,13 +183,13 @@ class RsaServiceEncryptionTest : StringSpec({
 						reimportedKeys.public,
 						reimportedPublicOnly
 					).map { // Encrypt with each public key
-						defaultCryptoService.rsa.encrypt(d.toByteArray(Charsets.UTF_8), it)
+						defaultCryptoService.rsa.encrypt(d.encodeToByteArray(), it)
 					}.flatMap { encrypted -> // Decrypt with each private keys
 						listOf(keys.private, reimportedKeys.private).map {
 							defaultCryptoService.rsa.decrypt(encrypted, keys.private)
 						}
 					}.forEach {  // Ensure content is valid
-						String(it, charset = Charsets.UTF_8) shouldBe d
+						it.decodeToString() shouldBe d
 					}
 				}
 			}
@@ -231,7 +228,7 @@ class RsaServiceEncryptionTest : StringSpec({
 					base64Decode(encryptedData),
 					keySizeAndPair.second.private
 				)
-				String(decrypted, charset = Charsets.UTF_8) shouldBe expectedData
+				decrypted.decodeToString() shouldBe expectedData
 			}
 		}
 
@@ -247,7 +244,7 @@ class RsaServiceEncryptionTest : StringSpec({
 					defaultCryptoService.rsa.loadPrivateKeyJwk(encryptionAlgorithm, privateKeyJwk),
 					defaultCryptoService.rsa.loadPublicKeyJwk(encryptionAlgorithm, privateKeyJwk.extractPublic())
 				)
-				val data = "Hello, World!".toByteArray()
+				val data = "Hello, World!".encodeToByteArray()
 				defaultCryptoService.rsa.encrypt(data, loadedPairFromPkcs8.public).let {
 					defaultCryptoService.rsa.decrypt(it, loadedPairFromJwk.private).toList() shouldBe data.toList()
 				}

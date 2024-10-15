@@ -4,8 +4,6 @@ import com.icure.kryptom.crypto.RsaAlgorithm.RsaSignatureAlgorithm.PssWithSha256
 import com.icure.kryptom.utils.base64Decode
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.toByteArray
 
 // Algorithm -> ((dataIndex, keyIndex) -> data[dataIndex] encrypted by sampleRsaKeys[keyIndex])
 // Signature done with the js implementation
@@ -88,16 +86,16 @@ class RsaServiceSignatureTest : StringSpec({
 					signatureAlgorithm, keySize
 				)
 				data.forEach { d ->
-					val signature = defaultCryptoService.rsa.sign(d.toByteArray(Charsets.UTF_8), keys.private)
+					val signature = defaultCryptoService.rsa.sign(d.encodeToByteArray(), keys.private)
 					defaultCryptoService.rsa.verifySignature(
 						signature,
-						d.toByteArray(Charsets.UTF_8),
+						d.encodeToByteArray(),
 						keys.public
 					) shouldBe true
 					d.mutations().forEach { w ->
 						defaultCryptoService.rsa.verifySignature(
 							signature,
-							w.toByteArray(Charsets.UTF_8),
+							w.encodeToByteArray(),
 							keys.public
 						) shouldBe false
 					}
@@ -115,7 +113,7 @@ class RsaServiceSignatureTest : StringSpec({
 				val keyPair = keyPairs[dataAndKeyIndices.second]
 				defaultCryptoService.rsa.verifySignature(
 					base64Decode(signature),
-					data[dataAndKeyIndices.first].toByteArray(Charsets.UTF_8),
+					data[dataAndKeyIndices.first].encodeToByteArray(),
 					keyPair.public
 				) shouldBe true
 			}
@@ -133,7 +131,7 @@ class RsaServiceSignatureTest : StringSpec({
 					defaultCryptoService.rsa.loadPrivateKeyJwk(signatureAlgorithm, privateKeyJwk),
 					defaultCryptoService.rsa.loadPublicKeyJwk(signatureAlgorithm, privateKeyJwk.extractPublic())
 				)
-				val data = "Hello, World!".toByteArray()
+				val data = "Hello, World!".encodeToByteArray()
 				defaultCryptoService.rsa.sign(data, loadedPairFromPkcs8.private).let {
 					defaultCryptoService.rsa.verifySignature(it, data, loadedPairFromJwk.public) shouldBe true
 				}

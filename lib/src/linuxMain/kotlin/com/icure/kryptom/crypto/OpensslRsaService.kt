@@ -7,10 +7,9 @@ import com.icure.kryptom.utils.OpensslErrorHandling
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
 import com.icure.kryptom.utils.base64Decode
+import com.icure.kryptom.utils.base64Encode
 import com.icure.kryptom.utils.readingFromBio
 import com.icure.kryptom.utils.writingToBio
-import io.ktor.util.encodeBase64
-import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.CValuesRef
@@ -159,7 +158,7 @@ object OpensslRsaService : RsaService {
 
     private fun ByteArray.toPemString(header: String, footer: String) = buildString {
         append(header)
-        this@toPemString.encodeBase64().chunked(64).forEach {
+        base64Encode(this@toPemString).chunked(64).forEach {
             append(it)
             append("\n")
         }

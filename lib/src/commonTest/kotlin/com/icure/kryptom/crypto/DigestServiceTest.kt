@@ -3,8 +3,6 @@ package com.icure.kryptom.crypto
 import com.icure.kryptom.utils.toHexString
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.toByteArray
 
 private val dataHashes = listOf(
 	"b4b7ccdb3223f407fa3bd0a6451453d774a14bf3208111a6e523ec6dce2af64c",
@@ -18,7 +16,7 @@ private val dataHashes = listOf(
 class DigestServiceTest : StringSpec({
 	"Sha256 digest should match expected" {
 		data.zip(dataHashes).forEach { (data, hash) ->
-			defaultCryptoService.digest.sha256(data.toByteArray(Charsets.UTF_8)).toHexString() shouldBe hash
+			defaultCryptoService.digest.sha256(data.encodeToByteArray()).toHexString() shouldBe hash
 		}
 	}
 })

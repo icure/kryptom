@@ -4,9 +4,6 @@ import com.icure.kryptom.utils.base64Decode
 import com.icure.kryptom.utils.base64Encode
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.utils.io.charsets.Charsets
-import io.ktor.utils.io.core.String
-import io.ktor.utils.io.core.toByteArray
 import kotlin.random.Random
 
 // The keys and are generated for test purpose only, they are not real secrets
@@ -53,7 +50,7 @@ class AesServiceTest : StringSpec({
 			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
 			data.forEach { d ->
 				val iv = defaultCryptoService.strongRandom.randomBytes(AesService.IV_BYTE_LENGTH)
-				val encrypted = defaultCryptoService.aes.encrypt(d.toByteArray(Charsets.UTF_8), key, iv)
+				val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key, iv)
 				encrypted.take(AesService.IV_BYTE_LENGTH) shouldBe iv.toList()
 			}
 		}
@@ -63,9 +60,9 @@ class AesServiceTest : StringSpec({
 		AesService.KeySize.entries.forEach { keySize ->
 			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
 			data.forEach { d ->
-				val encrypted = defaultCryptoService.aes.encrypt(d.toByteArray(Charsets.UTF_8), key)
+				val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key)
 				val decrypted = defaultCryptoService.aes.decrypt(encrypted, key)
-				String(decrypted, charset = Charsets.UTF_8) shouldBe d
+				decrypted.decodeToString() shouldBe d
 			}
 		}
 	}
@@ -73,7 +70,7 @@ class AesServiceTest : StringSpec({
 	"Encrypted data should match expected" {
 		val iv = base64Decode(encryptedDataSamplesIv)
 		encryptedDataSamples.forEach { (dataAndKeyIndices, expectedEncryptedData) ->
-			val d = data[dataAndKeyIndices.first].toByteArray(Charsets.UTF_8)
+			val d = data[dataAndKeyIndices.first].encodeToByteArray()
 			val key = defaultCryptoService.aes.loadKey(
 				AesAlgorithm.CbcWithPkcs7Padding,
 				base64Decode(encryptedDataSamplesKeys[dataAndKeyIndices.second])
@@ -90,9 +87,9 @@ class AesServiceTest : StringSpec({
 				defaultCryptoService.aes.exportKey(key)
 			)
 			data.forEach { d ->
-				val encrypted = defaultCryptoService.aes.encrypt(d.toByteArray(Charsets.UTF_8), key)
+				val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key)
 				val decrypted = defaultCryptoService.aes.decrypt(encrypted, reimportedKey)
-				String(decrypted, charset = Charsets.UTF_8) shouldBe d
+				decrypted.decodeToString() shouldBe d
 			}
 		}
 	}

@@ -19,7 +19,7 @@ val repoUsername: String by project
 val repoPassword: String by project
 val mavenReleasesRepository: String by project
 
-project.version = "1.1.3"
+project.version = "1.2.0"
 
 val localProperties = Properties().apply {
 	kotlin.runCatching {
@@ -118,7 +118,7 @@ kotlin {
 	sourceSets {
 		val commonMain by getting {
 			dependencies {
-				implementation(libs.ktorUtils)
+				implementation(libs.kotlinIo)
 			}
 		}
 		val commonTest by getting {
@@ -145,6 +145,7 @@ kotlin {
 				optIn("kotlin.js.ExperimentalJsExport")
 			}
 			dependencies {
+				implementation(libs.kotlinCoroutines)
 			}
 		}
 		val androidMain by getting {
