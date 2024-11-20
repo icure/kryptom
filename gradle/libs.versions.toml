@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.0.21"
-kotest = "5.9.0"
+kotest = "6.0.0.M1"
 androidLibrary = "8.2.2"
 bouncyCastle = "1.70"
 kotlinIo = "0.5.4"
@@ -16,7 +16,6 @@ androidLibraryPlugin = { group = "com.android.library", name = "com.android.libr
 # Kotest
 kotestAssertions = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
 kotestEngine = { group = "io.kotest", name = "kotest-framework-engine", version.ref = "kotest" }
-kotestDatatest = { group = "io.kotest", name = "kotest-framework-datatest", version.ref = "kotest" }
 kotestRunnerJunit = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
 
 # Cryptography providers

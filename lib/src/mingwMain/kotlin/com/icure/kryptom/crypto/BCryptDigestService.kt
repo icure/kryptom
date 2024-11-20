@@ -21,6 +21,10 @@ object BCryptDigestService : DigestService {
     override suspend fun sha256(
         data: ByteArray
     ): ByteArray = BCryptDigest.sha256(data)
+
+    override suspend fun sha512(
+        data: ByteArray
+    ): ByteArray = BCryptDigest.sha512(data)
 }
 
 /**
@@ -28,8 +32,11 @@ object BCryptDigestService : DigestService {
  */
 @OptIn(ExperimentalForeignApi::class)
 internal object BCryptDigest {
-    fun sha256(data: ByteArray): ByteArray =
-        withAlgorithmHandle(BCryptAlgorithm.BCRYPT_SHA256_ALGORITHM) { algorithmHandle ->
+    fun sha256(data: ByteArray): ByteArray = doSha(data, BCryptAlgorithm.BCRYPT_SHA256_ALGORITHM, 32)
+    fun sha512(data: ByteArray): ByteArray = doSha(data, BCryptAlgorithm.BCRYPT_SHA512_ALGORITHM, 64)
+
+    private fun doSha(data: ByteArray, algorithm: BCryptAlgorithm, digestSize: Int) =
+        withAlgorithmHandle(algorithm) { algorithmHandle ->
             memScoped {
                 val hashingBufferSize = algorithmHandle.getBCryptProperty(BCryptProperty.ObjectLengthProperty)
                 val hashHandle = alloc<BCRYPT_HASH_HANDLEVar>()
@@ -57,7 +64,7 @@ internal object BCryptDigest {
                             data.size.toUInt(),
                             0.toUInt()
                         ).ensureSuccess("BCryptHashData")
-                        ByteArray(32).also { result ->
+                        ByteArray(digestSize).also { result ->
                             result.usePinned { pinnedResult ->
                                 BCryptFinishHash(
                                     hashHandleValue,

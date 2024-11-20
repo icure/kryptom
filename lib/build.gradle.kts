@@ -125,7 +125,6 @@ kotlin {
 			dependencies {
 				implementation(libs.kotestAssertions)
 				implementation(libs.kotestEngine)
-				implementation(libs.kotestDatatest)
 				implementation(kotlin("test-common"))
 				implementation(kotlin("test-annotations-common"))
 			}

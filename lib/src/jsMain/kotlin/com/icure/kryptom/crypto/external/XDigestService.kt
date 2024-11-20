@@ -4,4 +4,5 @@ import kotlin.js.Promise
 
 external interface XDigestService {
 	fun sha256(data: ByteArray): Promise<ByteArray>
+	fun sha512(data: ByteArray): Promise<ByteArray>
 }
