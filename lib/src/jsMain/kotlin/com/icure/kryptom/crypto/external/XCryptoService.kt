@@ -114,6 +114,9 @@ private class DigestServiceAdapter(
 ) : DigestService {
 	override suspend fun sha256(data: ByteArray): ByteArray =
 		service.sha256(data).await()
+
+	override suspend fun sha512(data: ByteArray): ByteArray =
+		service.sha512(data).await()
 }
 
 private class XDigestServiceAdapter(
@@ -121,6 +124,10 @@ private class XDigestServiceAdapter(
 ) : XDigestService {
 	override fun sha256(data: ByteArray): Promise<ByteArray> = GlobalScope.promise {
 		service.sha256(data)
+	}
+
+	override fun sha512(data: ByteArray): Promise<ByteArray> = GlobalScope.promise {
+		service.sha512(data)
 	}
 }
 

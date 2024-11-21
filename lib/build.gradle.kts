@@ -19,7 +19,7 @@ val repoUsername: String by project
 val repoPassword: String by project
 val mavenReleasesRepository: String by project
 
-project.version = "1.2.0"
+project.version = "1.3.0"
 
 val localProperties = Properties().apply {
 	kotlin.runCatching {
@@ -125,7 +125,6 @@ kotlin {
 			dependencies {
 				implementation(libs.kotestAssertions)
 				implementation(libs.kotestEngine)
-				implementation(libs.kotestDatatest)
 				implementation(kotlin("test-common"))
 				implementation(kotlin("test-annotations-common"))
 			}

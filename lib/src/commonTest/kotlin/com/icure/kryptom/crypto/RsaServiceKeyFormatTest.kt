@@ -6,11 +6,12 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldMatch
 
+//TODO Should switch to checks on the ASN1 information for public exponent and stuff...
 class RsaServiceKeyFormatTest : StringSpec({
 	val public2048Format = Regex("^30820122300d06092a864886f70d01010105000382010f003082010a0282010100[0-9a-f]{512}0203010001\$")
 	val public4096Format = Regex("^30820222300d06092a864886f70d01010105000382020f003082020a0282020100[0-9a-f]{1024}0203010001\$")
-	val private2048Format = Regex("^308204b[0-9a-f]020100300d06092a864886f70d0101010500048204a[0-9a-f]308204a[0-9a-f]0201000282010100[0-9a-f]+\$")
-	val private4096Format = Regex("^3082094[0-9a-f]020100300d06092a864886f70d01010105000482092[0-9a-f]3082092[0-9a-f]0201000282020100[0-9a-f]+\$")
+	val private2048Format = Regex("^308204[0-9a-f][0-9a-f]020100300d06092a864886f70d0101010500048204a[0-9a-f]308204a[0-9a-f]0201000282010100[0-9a-f]+\$")
+	val private4096Format = Regex("^308209[0-9a-f][0-9a-f]020100300d06092a864886f70d01010105000482092[0-9a-f]3082092[0-9a-f]0201000282020100[0-9a-f]+\$")
 	val algorithms = listOf(
 		RsaAlgorithm.RsaEncryptionAlgorithm.OaepWithSha256,
 		RsaAlgorithm.RsaEncryptionAlgorithm.OaepWithSha1,
