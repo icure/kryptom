@@ -2,7 +2,7 @@
 kotlin = "2.0.21"
 kotest = "6.0.0.M1"
 androidLibrary = "8.2.2"
-bouncyCastle = "1.78"
+bouncyCastle = "1.81"
 kotlinIo = "0.5.4"
 kotlinCoroutines = "1.9.0"
 
