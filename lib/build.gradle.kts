@@ -1,8 +1,7 @@
-import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
-import java.util.Properties
+import java.util.*
 
 plugins {
 	kotlinMultiplatform()
@@ -10,7 +9,7 @@ plugins {
 	androidLibrary()
 	id("maven-publish")
 	signing
-	id("com.vanniktech.maven.publish") version "0.28.0"
+	id("com.vanniktech.maven.publish") version "0.34.0"
 }
 
 group = "com.icure.kryptom"
@@ -45,7 +44,9 @@ kotlin {
 				}
 			}
 		}
-		nodejs { }
+		nodejs {
+			version = "20.13.1"
+		}
 		binaries.library()
 		generateTypeScriptDefinitions()
 	}
@@ -219,16 +220,16 @@ mavenPublishing {
 		}
 	}
 
-	publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+	publishToMavenCentral(automaticRelease = true)
 
 	if (projectHasSignatureProperties()) {
 		signAllPublications()
 	}
 }
 
-rootProject.plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class.java) {
-	rootProject.the<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>().nodeVersion = "20.13.1"
-}
+//rootProject.plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class.java) {
+//	rootProject.the<NodeJsRootExtension>().version = "20.13.1"
+//}
 
 // Configure all publishing tasks
 if (!projectHasSignatureProperties()) {
