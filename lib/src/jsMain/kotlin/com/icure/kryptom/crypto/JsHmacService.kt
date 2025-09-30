@@ -21,9 +21,13 @@ object JsHmacService : HmacService {
 			"length" to keySize * 8
 		)
 
-	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
-		require(keySize == null || keySize >= algorithm.minimumKeySize) {
-			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+	override suspend fun <A : HmacAlgorithm> generateKey(
+		algorithm: A,
+		keySize: Int?,
+		acceptsShortKeySize: Boolean
+	): HmacKey<A> {
+		require(acceptsShortKeySize || keySize == null || keySize >= algorithm.minimumRecommendedKeySize) {
+			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumRecommendedKeySize} is required"
 		}
 		val requestedKeySize = keySize ?: algorithm.recommendedKeySize
 		val generatedKey = jsCrypto.subtle.generateKey(
@@ -44,9 +48,13 @@ object JsHmacService : HmacService {
 	private suspend fun exportRawKey(rawKey: dynamic) =
 		jsCrypto.subtle.exportKey(RAW, rawKey).await() as ArrayBuffer
 
-	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-		require(bytes.size >= algorithm.minimumKeySize) {
-			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+	override suspend fun <A : HmacAlgorithm> loadKey(
+		algorithm: A,
+		bytes: ByteArray,
+		acceptsShortKeys: Boolean
+	): HmacKey<A> {
+		require(acceptsShortKeys || bytes.size >= algorithm.minimumRecommendedKeySize) {
+			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumRecommendedKeySize} expected"
 		}
 		return HmacKey(
 			jsCrypto.subtle.importKey(

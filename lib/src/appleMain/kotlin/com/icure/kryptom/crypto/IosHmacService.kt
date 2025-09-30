@@ -10,9 +10,13 @@ import platform.CoreCrypto.kCCHmacAlgSHA256
 import platform.CoreCrypto.kCCHmacAlgSHA512
 
 object IosHmacService : HmacService {
-	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
-		require(keySize == null || keySize >= algorithm.minimumKeySize) {
-			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+	override suspend fun <A : HmacAlgorithm> generateKey(
+		algorithm: A,
+		keySize: Int?,
+		acceptsShortKeySize: Boolean
+	): HmacKey<A> {
+		require(acceptsShortKeySize || keySize == null || keySize >= algorithm.minimumRecommendedKeySize) {
+			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumRecommendedKeySize} is required"
 		}
 		return HmacKey(IosStrongRandom.randomBytes(keySize ?: algorithm.recommendedKeySize), algorithm)
 	}
@@ -21,9 +25,13 @@ object IosHmacService : HmacService {
 	override suspend fun exportKey(key: HmacKey<*>): ByteArray =
 		key.rawKey.copyOf()
 
-	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-		require(bytes.size >= algorithm.minimumKeySize) {
-			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+	override suspend fun <A : HmacAlgorithm> loadKey(
+		algorithm: A,
+		bytes: ByteArray,
+		acceptsShortKeys: Boolean
+	): HmacKey<A> {
+		require(acceptsShortKeys || bytes.size >= algorithm.minimumRecommendedKeySize) {
+			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumRecommendedKeySize} expected"
 		}
 		return HmacKey(bytes.copyOf(), algorithm)
 	}

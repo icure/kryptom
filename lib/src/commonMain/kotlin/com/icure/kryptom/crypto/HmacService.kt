@@ -6,10 +6,15 @@ interface HmacService {
 	 *
 	 * @param algorithm the [HmacAlgorithm].
 	 * @param keySize the key size. If null (default behaviour), [HmacAlgorithm.recommendedKeySize] will be used.
-	 * Note: for security reasons, the key size cannot be less than [HmacAlgorithm.minimumKeySize]
-	 * @throws IllegalArgumentException if [keySize] is less than [HmacAlgorithm.minimumKeySize]
+	 * Note: for general usage the key size shouldn't be less than [HmacAlgorithm.minimumRecommendedKeySize], but in
+	 * some applications (e.g. TOTP shorter lengths are acceptable)
+	 * @param acceptsShortKeySize if false (default) key sizes shorter than the minimum recommended key size for the algorithm will be rejected
 	 */
-	suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int? = null): HmacKey<A>
+	suspend fun <A : HmacAlgorithm> generateKey(
+		algorithm: A,
+		keySize: Int? = null,
+		acceptsShortKeySize: Boolean = false
+	): HmacKey<A>
 
 	/**
 	 * Exports a key to a byte array.
@@ -18,8 +23,13 @@ interface HmacService {
 
 	/**
 	 * Imports a key from a byte array.
+	 * @param acceptsShortKey if false (default) keys shorter than the minimum recommended key size for the algorithm will be rejected
 	 */
-	suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A>
+	suspend fun <A : HmacAlgorithm> loadKey(
+		algorithm: A,
+		bytes: ByteArray,
+		acceptsShortKeys: Boolean = false
+	): HmacKey<A>
 
 	/**
 	 * Generates a signature for some data using the provided key and algorithm.

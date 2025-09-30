@@ -8,9 +8,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
-import libcrypto.EVP_DigestSignInit
 import libcrypto.EVP_MAX_MD_SIZE
-import libcrypto.EVP_sha256
 import libcrypto.EVP_sha512
 import libcrypto.HMAC_CTX_free
 import libcrypto.HMAC_CTX_new
@@ -20,9 +18,13 @@ import libcrypto.HMAC_Update
 
 @OptIn(ExperimentalForeignApi::class)
 object OpensslHmacService : HmacService {
-    override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
-        require(keySize == null || keySize >= algorithm.minimumKeySize) {
-            "Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+    override suspend fun <A : HmacAlgorithm> generateKey(
+        algorithm: A,
+        keySize: Int?,
+        acceptsShortKeySize: Boolean
+    ): HmacKey<A> {
+        require(acceptsShortKeySize || keySize == null || keySize >= algorithm.minimumRecommendedKeySize) {
+            "Invalid key size for $algorithm. A minimal length of ${algorithm.minimumRecommendedKeySize} is required"
         }
         return HmacKey(OpensslStrongRandom.randomBytes(keySize ?: algorithm.recommendedKeySize), algorithm)
     }
@@ -30,9 +32,13 @@ object OpensslHmacService : HmacService {
     override suspend fun exportKey(key: HmacKey<*>): ByteArray =
         key.rawKey
 
-    override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-        require(bytes.size >= algorithm.minimumKeySize) {
-            "Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+    override suspend fun <A : HmacAlgorithm> loadKey(
+        algorithm: A,
+        bytes: ByteArray,
+        acceptsShortKeys: Boolean
+    ) : HmacKey<A> {
+        require(acceptsShortKeys || bytes.size >= algorithm.minimumRecommendedKeySize) {
+            "Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumRecommendedKeySize} expected"
         }
         return HmacKey(bytes.copyOf(), algorithm)
     }
