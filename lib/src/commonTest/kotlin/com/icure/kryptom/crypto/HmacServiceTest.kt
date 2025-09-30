@@ -62,14 +62,14 @@ class HmacServiceTest : StringSpec({
 		}
 
 		"$algorithm - can generate a key with a custom size" {
-			val size = algorithm.minimumKeySize
+			val size = algorithm.minimumRecommendedKeySize
 			val key = defaultCryptoService.hmac.generateKey(algorithm, size)
 			defaultCryptoService.hmac.exportKey(key).size shouldBe size
 		}
 
 		"$algorithm - cannot specify a key size less than the minimum key size" {
 			shouldThrow<IllegalArgumentException> {
-				defaultCryptoService.hmac.generateKey(algorithm, algorithm.minimumKeySize - 1)
+				defaultCryptoService.hmac.generateKey(algorithm, algorithm.minimumRecommendedKeySize - 1)
 			}
 		}
 

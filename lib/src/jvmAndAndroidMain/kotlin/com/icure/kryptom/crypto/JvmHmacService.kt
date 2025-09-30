@@ -11,9 +11,13 @@ object JvmHmacService : HmacService {
 			HmacAlgorithm.HmacSha256 -> "HMac-SHA256"
 		}
 
-	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {
-		require(keySize == null || keySize >= algorithm.minimumKeySize) {
-			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
+	override suspend fun <A : HmacAlgorithm> generateKey(
+		algorithm: A,
+		keySize: Int?,
+		acceptsShortKeySize: Boolean
+	): HmacKey<A> {
+		require(acceptsShortKeySize || keySize == null || keySize >= algorithm.minimumRecommendedKeySize) {
+			"Invalid key size for $algorithm. A minimal length of ${algorithm.minimumRecommendedKeySize} is required"
 		}
 		val keyGen: KeyGenerator = KeyGenerator.getInstance(algorithm.name)
 		keyGen.init((keySize ?: algorithm.recommendedKeySize) * 8)
@@ -24,9 +28,13 @@ object JvmHmacService : HmacService {
 		return key.key.encoded
 	}
 
-	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> {
-		require(bytes.size >= algorithm.minimumKeySize) {
-			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumKeySize} expected"
+	override suspend fun <A : HmacAlgorithm> loadKey(
+		algorithm: A,
+		bytes: ByteArray,
+		acceptsShortKeys: Boolean
+	): HmacKey<A> {
+		require(acceptsShortKeys || bytes.size >= algorithm.minimumRecommendedKeySize) {
+			"Invalid key length for algorithm $algorithm: got ${bytes.size} but at least ${algorithm.minimumRecommendedKeySize} expected"
 		}
 		return HmacKey(SecretKeySpec(bytes, algorithm.name), algorithm)
 	}

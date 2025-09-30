@@ -202,7 +202,7 @@ sealed interface HmacAlgorithm {
 	 * The minimum key size for this algorithm in bytes, as specified in the [HMAC RFC](https://www.rfc-editor.org/rfc/rfc2104#section-3).
 	 * A key which size is under this length decrease the security strength of the function.
 	 */
-	val minimumKeySize: Int
+	val minimumRecommendedKeySize: Int
 
 	/**
 	 * The size of the digest produced by this algorithm in bytes.
@@ -219,7 +219,7 @@ sealed interface HmacAlgorithm {
 	 */
 	data object HmacSha512 : HmacAlgorithm {
 		override val recommendedKeySize: Int = 128
-		override val minimumKeySize: Int = 64
+		override val minimumRecommendedKeySize: Int = 64
 		override val digestSize: Int = 64
 		override val identifier: String = Identifiers.HMAC_SHA_512
 	}
@@ -229,7 +229,7 @@ sealed interface HmacAlgorithm {
 	 */
 	data object HmacSha256 : HmacAlgorithm {
 		override val recommendedKeySize: Int = 64
-		override val minimumKeySize: Int = 32
+		override val minimumRecommendedKeySize: Int = 32
 		override val digestSize: Int = 32
 		override val identifier: String = Identifiers.HMAC_SHA_256
 	}
