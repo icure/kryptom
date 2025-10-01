@@ -83,6 +83,13 @@ private class AesServiceAdapter(
 
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray =
 		service.decrypt(ivAndEncryptedData, key.toExternal()).await()
+
+	override suspend fun decrypt(
+		encryptedData: ByteArray,
+		key: AesKey<*>,
+		iv: ByteArray
+	): ByteArray =
+		service.decrypt(iv + encryptedData, key.toExternal()).await()
 }
 
 private class XAesServiceAdapter(
