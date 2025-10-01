@@ -1,17 +1,19 @@
 [versions]
-kotlin = "2.2.0"
-kotest = "6.0.0.M1"
+kotlin = "2.2.20"
+kotest = "6.0.3"
 androidLibrary = "8.2.2"
-bouncyCastle = "1.81"
-kotlinIo = "0.5.4"
+bouncyCastle = "1.82"
+kotlinIo = "0.8.0"
 kotlinCoroutines = "1.9.0"
+ksp = "2.2.20-2.0.3"
 
 [libraries]
 
 # Gradle plugins
 kotlinMultiplatformPlugin = { group = "org.jetbrains.kotlin.multiplatform", name = "org.jetbrains.kotlin.multiplatform.gradle.plugin", version.ref = "kotlin" }
-kotestMultiplatformPlugin = { group = "io.kotest.multiplatform", name = "io.kotest.multiplatform.gradle.plugin", version.ref = "kotest" }
+kotestPlugin = { group = "io.kotest", name = "io.kotest.gradle.plugin", version.ref = "kotest" }
 androidLibraryPlugin = { group = "com.android.library", name = "com.android.library.gradle.plugin", version.ref = "androidLibrary" }
+kspPlugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 
 # Kotest
 kotestAssertions = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }

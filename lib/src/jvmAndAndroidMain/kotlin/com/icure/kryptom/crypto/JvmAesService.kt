@@ -11,6 +11,7 @@ object JvmAesService : AesService {
 		algorithm: AesAlgorithm
 	): Cipher = when (algorithm) {
 		AesAlgorithm.CbcWithPkcs7Padding -> Cipher.getInstance("AES/CBC/PKCS7Padding")
+		AesAlgorithm.CtrWithPkcs7Padding -> Cipher.getInstance("AES/CTR/PKCS7Padding")
 	}
 
 	override suspend fun <A : AesAlgorithm> generateKey(algorithm: A, size: AesService.KeySize): AesKey<A> {
@@ -35,7 +36,20 @@ object JvmAesService : AesService {
 
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
 		val iv = ivAndEncryptedData.sliceArray(0 until IV_BYTE_LENGTH)
-		val data = ivAndEncryptedData.sliceArray(IV_BYTE_LENGTH until ivAndEncryptedData.size)
-		return getCipher(key.algorithm).apply { init(Cipher.DECRYPT_MODE, key.key, IvParameterSpec(iv)) }.doFinal(data)
+		val encryptedData = ivAndEncryptedData.sliceArray(IV_BYTE_LENGTH until ivAndEncryptedData.size)
+		return decrypt(
+			encryptedData,
+			key,
+			iv
+		)
+	}
+
+	override suspend fun decrypt(
+		encryptedData: ByteArray,
+		key: AesKey<*>,
+		iv: ByteArray
+	): ByteArray {
+		require(iv.size == IV_BYTE_LENGTH) { "IV must be 16 bytes long" }
+		return getCipher(key.algorithm).apply { init(Cipher.DECRYPT_MODE, key.key, IvParameterSpec(iv)) }.doFinal(encryptedData)
 	}
 }

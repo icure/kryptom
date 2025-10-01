@@ -3,6 +3,7 @@ package com.icure.kryptom.crypto
 import com.icure.kryptom.utils.base64Decode
 import com.icure.kryptom.utils.base64Encode
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.inspectors.forAll
 import io.kotest.matchers.shouldBe
 import kotlin.random.Random
 
@@ -45,29 +46,86 @@ private val encryptedDataSamples = mapOf(
 )
 
 class AesServiceTest : StringSpec({
-	"Encrypted data should start with iv" {
-		AesService.KeySize.entries.forEach { keySize ->
-			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
-			data.forEach { d ->
-				val iv = defaultCryptoService.strongRandom.randomBytes(AesService.IV_BYTE_LENGTH)
-				val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key, iv)
-				encrypted.take(AesService.IV_BYTE_LENGTH) shouldBe iv.toList()
+	listOf(
+		AesAlgorithm.CbcWithPkcs7Padding,
+		AesAlgorithm.CtrWithPkcs7Padding,
+	).forEach { algorithm ->
+		"Encrypted data should start with iv ($algorithm)" {
+			AesService.KeySize.entries.forEach { keySize ->
+				val key = defaultCryptoService.aes.generateKey(algorithm, keySize)
+				data.forAll { d ->
+					val iv = defaultCryptoService.strongRandom.randomBytes(AesService.IV_BYTE_LENGTH)
+					val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key, iv)
+					encrypted.take(AesService.IV_BYTE_LENGTH) shouldBe iv.toList()
+				}
 			}
+		}
+
+		"Service should be able to encrypt and decrypt data with keys of any size ($algorithm)" {
+			AesService.KeySize.entries.forEach { keySize ->
+				val key = defaultCryptoService.aes.generateKey(algorithm, keySize)
+				data.forAll { d ->
+					val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key)
+					val decrypted = defaultCryptoService.aes.decrypt(encrypted, key)
+					decrypted.decodeToString() shouldBe d
+				}
+			}
+		}
+
+		"Exported then re-imported key should be able to decrypt data encrypted with the original key ($algorithm)" {
+			AesService.KeySize.values().forEach { keySize ->
+				val key = defaultCryptoService.aes.generateKey(algorithm, keySize)
+				val reimportedKey = defaultCryptoService.aes.loadKey(
+					algorithm,
+					defaultCryptoService.aes.exportKey(key)
+				)
+				data.forAll { d ->
+					val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key)
+					val decrypted = defaultCryptoService.aes.decrypt(encrypted, reimportedKey)
+					decrypted.decodeToString() shouldBe d
+				}
+			}
+		}
+
+		"Generated keys should have the requested size ($algorithm)" {
+			AesService.KeySize.entries.forAll { keySize ->
+				val key = defaultCryptoService.aes.generateKey(algorithm, keySize)
+				defaultCryptoService.aes.exportKey(key).size shouldBe keySize.byteSize
+			}
+		}
+
+		"Encrypt, decrypt and import methods should not modify input buffers ($algorithm)" {
+			val iv = Random.Default.nextBytes(AesService.IV_BYTE_LENGTH)
+			val ivCopy = iv.copyOf()
+			val data = Random.Default.nextBytes(20)
+			val dataCopy = data.copyOf()
+			val key = Random.Default.nextBytes(AesService.KeySize.Aes256.byteSize)
+			val keyCopy = key.copyOf()
+			val importedKey = defaultCryptoService.aes.loadKey(algorithm, key)
+			val ivAndEncrypted = defaultCryptoService.aes.encrypt(
+				data,
+				importedKey,
+				iv
+			)
+			val ivAndEncryptedCopy = ivAndEncrypted.copyOf()
+			val ivAndEncryptedSecond = defaultCryptoService.aes.encrypt(
+				data,
+				importedKey,
+				iv
+			)
+			defaultCryptoService.aes.decrypt(
+				ivAndEncrypted,
+				importedKey
+			)
+			key.toList() shouldBe keyCopy.toList()
+			iv.toList() shouldBe ivCopy.toList()
+			data.toList() shouldBe dataCopy.toList()
+			ivAndEncrypted.toList() shouldBe ivAndEncryptedCopy.toList()
+			ivAndEncryptedSecond.toList() shouldBe ivAndEncryptedCopy.toList()
 		}
 	}
 
-	"Service should be able to encrypt and decrypt data with keys of any size" {
-		AesService.KeySize.entries.forEach { keySize ->
-			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
-			data.forEach { d ->
-				val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key)
-				val decrypted = defaultCryptoService.aes.decrypt(encrypted, key)
-				decrypted.decodeToString() shouldBe d
-			}
-		}
-	}
-
-	"Encrypted data should match expected" {
+	"Encrypted data should match expected (precomputed CBC)" {
 		val iv = base64Decode(encryptedDataSamplesIv)
 		encryptedDataSamples.forEach { (dataAndKeyIndices, expectedEncryptedData) ->
 			val d = data[dataAndKeyIndices.first].encodeToByteArray()
@@ -79,55 +137,18 @@ class AesServiceTest : StringSpec({
 		}
 	}
 
-	"Exported then re-imported key should be able to decrypt data encrypted with the original key" {
-		AesService.KeySize.values().forEach { keySize ->
-			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
-			val reimportedKey = defaultCryptoService.aes.loadKey(
-				AesAlgorithm.CbcWithPkcs7Padding,
-				defaultCryptoService.aes.exportKey(key)
-			)
-			data.forEach { d ->
-				val encrypted = defaultCryptoService.aes.encrypt(d.encodeToByteArray(), key)
-				val decrypted = defaultCryptoService.aes.decrypt(encrypted, reimportedKey)
-				decrypted.decodeToString() shouldBe d
-			}
+	"Encrypted data should match expected (precomputed CTR)" {
+		val keyBytes = base64Decode("")
+		val clearText = "Test for CTR encryption with enough bytes to have more than a block"
+		listOf(
+			"/////////////////////w==" to "", // All 1 IV should help ensure same counter size
+			"AAAAAAAAAAAAAAAAAAAAAA==" to "", // All 0 IV should help ensure same endianness
+		).forEach { (ivBase64, expectedEncrypted) ->
+			val iv = base64Decode(ivBase64)
+			val key = defaultCryptoService.aes.loadKey(AesAlgorithm.CtrWithPkcs7Padding, keyBytes)
+			val encryptedBytes = base64Encode(defaultCryptoService.aes.encrypt(clearText.encodeToByteArray(), key, iv).drop(AesService.IV_BYTE_LENGTH).toByteArray())
+			encryptedBytes shouldBe expectedEncrypted
+			defaultCryptoService.aes.decrypt(base64Decode(expectedEncrypted), key, iv).decodeToString() shouldBe clearText
 		}
-	}
-
-	"Generated keys should have the requested size" {
-		AesService.KeySize.entries.forEach { keySize ->
-			val key = defaultCryptoService.aes.generateKey(AesAlgorithm.CbcWithPkcs7Padding, keySize)
-			defaultCryptoService.aes.exportKey(key).size shouldBe keySize.byteSize
-		}
-	}
-
-	"Encrypt, decrypt and import methods should not modify input buffers" {
-		val iv = Random.Default.nextBytes(AesService.IV_BYTE_LENGTH)
-		val ivCopy = iv.copyOf()
-		val data = Random.Default.nextBytes(20)
-		val dataCopy = data.copyOf()
-		val key = Random.Default.nextBytes(AesService.KeySize.Aes256.byteSize)
-		val keyCopy = key.copyOf()
-		val importedKey = defaultCryptoService.aes.loadKey(AesAlgorithm.CbcWithPkcs7Padding, key)
-		val ivAndEncrypted = defaultCryptoService.aes.encrypt(
-			data,
-			importedKey,
-			iv
-		)
-		val ivAndEncryptedCopy = ivAndEncrypted.copyOf()
-		val ivAndEncryptedSecond = defaultCryptoService.aes.encrypt(
-			data,
-			importedKey,
-			iv
-		)
-		defaultCryptoService.aes.decrypt(
-			ivAndEncrypted,
-			importedKey
-		)
-		key.toList() shouldBe keyCopy.toList()
-		iv.toList() shouldBe ivCopy.toList()
-		data.toList() shouldBe dataCopy.toList()
-		ivAndEncrypted.toList() shouldBe ivAndEncryptedCopy.toList()
-		ivAndEncryptedSecond.toList() shouldBe ivAndEncryptedCopy.toList()
 	}
 })

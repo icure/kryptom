@@ -165,9 +165,18 @@ sealed interface AesAlgorithm {
 		override val identifier: String = Identifiers.CBC_PKCS7
 	}
 
+	/**
+	 * Aes ctr encryption algorithm with pkcs7 padding.
+	 * Note this algorithm is NOT supported on MINGW platform.
+	 */
+	data object CtrWithPkcs7Padding : AesAlgorithm {
+		override val identifier: String = Identifiers.CTR_PKCS7
+	}
+
 	companion object {
 		private object Identifiers {
 			const val CBC_PKCS7 = "AesCbcPkcs7"
+			const val CTR_PKCS7 = "AesCtrPkcs7"
 		}
 
 		/**
@@ -179,6 +188,7 @@ sealed interface AesAlgorithm {
 		@Throws(IllegalArgumentException::class)
 		fun fromIdentifier(identifier: String): AesAlgorithm = when (identifier) {
 			Identifiers.CBC_PKCS7 -> CbcWithPkcs7Padding
+			Identifiers.CTR_PKCS7 -> CtrWithPkcs7Padding
 			else -> throw IllegalArgumentException("Unknown aes algorithm $identifier")
 		}
 	}

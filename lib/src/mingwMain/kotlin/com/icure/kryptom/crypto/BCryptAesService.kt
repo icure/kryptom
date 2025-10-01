@@ -1,5 +1,6 @@
 package com.icure.kryptom.crypto
 
+import com.icure.kryptom.crypto.AesService.Companion.IV_BYTE_LENGTH
 import com.icure.kryptom.utils.PlatformMethodException
 import com.icure.kryptom.utils.ensureSuccess
 import kotlinx.cinterop.*
@@ -17,6 +18,7 @@ object BCryptAesService : AesService {
             BCryptProperty.BlockChainingModeProperty setTo BCryptProperty.BlockChainingModeProperty.BlockChainingMode.BCRYPT_CHAIN_MODE_CBC,
             block = block
         )
+        AesAlgorithm.CtrWithPkcs7Padding -> throw UnsupportedOperationException("Algorithm $algorithm is unsupported on mingw platform")
     }
 
     override suspend fun <A : AesAlgorithm> generateKey(algorithm: A, size: AesService.KeySize): AesKey<A> =
@@ -124,48 +126,75 @@ object BCryptAesService : AesService {
         }
     }
 
-    override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray = withAlgorithmHandle(key.algorithm) { algorithmHandle ->
+    override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray =
+        ivAndEncryptedData.usePinned {
+            doDecrypt(
+                key = key,
+                pinnedEncryptedData = it,
+                encryptedDataOffset = IV_BYTE_LENGTH,
+                encryptedDataSize = ivAndEncryptedData.size - IV_BYTE_LENGTH,
+                pinnedIv = it
+            )
+        }
+
+    override suspend fun decrypt(
+        encryptedData: ByteArray,
+        key: AesKey<*>,
+        iv: ByteArray
+    ): ByteArray {
+        require(iv.size == IV_BYTE_LENGTH) { "IV must be 16 bytes long" }
+        return encryptedData.usePinned { pinnedEncryptedData ->
+            iv.usePinned { pinnedIv ->
+                doDecrypt(
+                    key = key,
+                    pinnedEncryptedData = pinnedEncryptedData,
+                    encryptedDataOffset = 0,
+                    encryptedDataSize = encryptedData.size,
+                    pinnedIv = pinnedIv
+                )
+            }
+        }
+    }
+
+    private fun doDecrypt(
+        key: AesKey<*>,
+        pinnedEncryptedData: Pinned<ByteArray>,
+        encryptedDataOffset: Int,
+        encryptedDataSize: Int,
+        pinnedIv: Pinned<ByteArray>,
+    ): ByteArray = withAlgorithmHandle(key.algorithm) { algorithmHandle ->
         withKeyHandle(key, algorithmHandle) { keyHandle ->
-            val iv = ivAndEncryptedData.sliceArray(0 until AesService.IV_BYTE_LENGTH)
-            val pinnedIv = iv.pin()
-            val data = ivAndEncryptedData.sliceArray(AesService.IV_BYTE_LENGTH until ivAndEncryptedData.size)
-            val pinnedData = data.pin()
-            try {
-                memScoped {
-                    val decryptedTextBufferSize = alloc<UIntVar>()
+            memScoped {
+                val decryptedTextBufferSize = alloc<UIntVar>()
+                BCryptDecrypt(
+                    keyHandle,
+                    pinnedEncryptedData.addressOf(encryptedDataOffset).reinterpret(),
+                    encryptedDataSize.toUInt(),
+                    null,
+                    pinnedIv.addressOf(0).reinterpret(),
+                    IV_BYTE_LENGTH.toUInt(),
+                    null,
+                    0.toUInt(),
+                    decryptedTextBufferSize.ptr,
+                    1.toUInt() // BCRYPT_BLOCK_PADDING
+                ).ensureSuccess("BCryptDecrypt get decrypted size")
+                val actualDecryptedSize = alloc<UIntVar>()
+                val decryptedData = ByteArray(decryptedTextBufferSize.value.toInt())
+                decryptedData.usePinned { pinnedDecrypted ->
                     BCryptDecrypt(
                         keyHandle,
-                        pinnedData.addressOf(0).reinterpret(),
-                        data.size.toUInt(),
+                        pinnedEncryptedData.addressOf(encryptedDataOffset).reinterpret(),
+                        encryptedDataSize.toUInt(),
                         null,
                         pinnedIv.addressOf(0).reinterpret(),
-                        iv.size.toUInt(),
-                        null,
-                        0.toUInt(),
-                        decryptedTextBufferSize.ptr,
+                        IV_BYTE_LENGTH.toUInt(),
+                        pinnedDecrypted.addressOf(0).reinterpret(),
+                        decryptedData.size.toUInt(),
+                        actualDecryptedSize.ptr,
                         1.toUInt() // BCRYPT_BLOCK_PADDING
-                    ).ensureSuccess("BCryptDecrypt get decrypted size")
-                    val actualDecryptedSize = alloc<UIntVar>()
-                    val decryptedData = ByteArray(decryptedTextBufferSize.value.toInt())
-                    decryptedData.usePinned { pinnedDecrypted ->
-                        BCryptDecrypt(
-                            keyHandle,
-                            pinnedData.addressOf(0).reinterpret(),
-                            data.size.toUInt(),
-                            null,
-                            pinnedIv.addressOf(0).reinterpret(),
-                            iv.size.toUInt(),
-                            pinnedDecrypted.addressOf(0).reinterpret(),
-                            decryptedData.size.toUInt(),
-                            actualDecryptedSize.ptr,
-                            1.toUInt() // BCRYPT_BLOCK_PADDING
-                        ).ensureSuccess("BCryptDecrypt do decrypt")
-                    }
-                    decryptedData.sliceArray(0 until actualDecryptedSize.value.toInt())
+                    ).ensureSuccess("BCryptDecrypt do decrypt")
                 }
-            } finally {
-                pinnedIv.unpin()
-                pinnedData.unpin()
+                decryptedData.sliceArray(0 until actualDecryptedSize.value.toInt())
             }
         }
     }

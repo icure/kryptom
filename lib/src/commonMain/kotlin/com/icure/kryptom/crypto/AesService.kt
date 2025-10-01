@@ -93,4 +93,9 @@ interface AesService {
 	 * @throws IllegalArgumentException if the key is invalid (for example if the size is not good for an aes key).
 	 */
 	suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray
+
+	/**
+	 * Version of decrypt where the encrypted data and iv are provided separately
+	 */
+	suspend fun decrypt(encryptedData: ByteArray, key: AesKey<*>, iv: ByteArray): ByteArray
 }

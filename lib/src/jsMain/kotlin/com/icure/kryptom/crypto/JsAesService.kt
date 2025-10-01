@@ -1,5 +1,6 @@
 package com.icure.kryptom.crypto
 
+import com.icure.kryptom.crypto.AesService.Companion.IV_BYTE_LENGTH
 import com.icure.kryptom.js.jsCrypto
 import com.icure.kryptom.js.toArrayBuffer
 import com.icure.kryptom.js.toByteArray
@@ -14,6 +15,7 @@ object JsAesService : AesService {
 	private fun subtleAlgorithmNameFor(algorithm: AesAlgorithm) =
 		when (algorithm) {
 			AesAlgorithm.CbcWithPkcs7Padding -> "AES-CBC"
+			AesAlgorithm.CtrWithPkcs7Padding -> "AES-CTR"
 		}
 
 	private fun generateKeyParams(algorithm: AesAlgorithm, keySize: AesService.KeySize) = json(
@@ -64,12 +66,36 @@ object JsAesService : AesService {
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
 		val buffer = ivAndEncryptedData.toArrayBuffer()
 		val iv = buffer.slice(0, AesService.IV_BYTE_LENGTH)
-		val data = buffer.slice(AesService.IV_BYTE_LENGTH)
-		return jsCrypto.subtle.decrypt(encryptionParam(key.algorithm, iv), key.cryptoKey, data).await().toByteArray()
+		val encryptedData = buffer.slice(AesService.IV_BYTE_LENGTH)
+		return doDecrypt(encryptedData, key, iv)
 	}
 
-	private fun encryptionParam(algorithm: AesAlgorithm, iv: ArrayBuffer) = json(
-		"name" to subtleAlgorithmNameFor(algorithm),
-		"iv" to iv
-	)
+	override suspend fun decrypt(
+		encryptedData: ByteArray,
+		key: AesKey<*>,
+		iv: ByteArray
+	): ByteArray {
+		require(iv.size == IV_BYTE_LENGTH) { "IV must be 16 bytes long" }
+		return doDecrypt(encryptedData.toArrayBuffer(), key, iv.toArrayBuffer())
+	}
+
+	private suspend fun doDecrypt(
+		encryptedData: ArrayBuffer,
+		key: AesKey<*>,
+		iv: ArrayBuffer
+	): ByteArray {
+		return jsCrypto.subtle.decrypt(encryptionParam(key.algorithm, iv), key.cryptoKey, encryptedData).await().toByteArray()
+	}
+
+	private fun encryptionParam(algorithm: AesAlgorithm, iv: ArrayBuffer) = when (algorithm) {
+		AesAlgorithm.CbcWithPkcs7Padding -> json(
+			"name" to subtleAlgorithmNameFor(algorithm),
+			"iv" to iv
+		)
+		AesAlgorithm.CtrWithPkcs7Padding -> json(
+			"name" to subtleAlgorithmNameFor(algorithm),
+			"counter" to iv,
+			"length" to 128,
+		)
+	}
 }
