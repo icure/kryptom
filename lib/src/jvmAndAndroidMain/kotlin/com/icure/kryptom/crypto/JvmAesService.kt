@@ -35,7 +35,20 @@ object JvmAesService : AesService {
 
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
 		val iv = ivAndEncryptedData.sliceArray(0 until IV_BYTE_LENGTH)
-		val data = ivAndEncryptedData.sliceArray(IV_BYTE_LENGTH until ivAndEncryptedData.size)
-		return getCipher(key.algorithm).apply { init(Cipher.DECRYPT_MODE, key.key, IvParameterSpec(iv)) }.doFinal(data)
+		val encryptedData = ivAndEncryptedData.sliceArray(IV_BYTE_LENGTH until ivAndEncryptedData.size)
+		return decrypt(
+			encryptedData,
+			key,
+			iv
+		)
+	}
+
+	override suspend fun decrypt(
+		encryptedData: ByteArray,
+		key: AesKey<*>,
+		iv: ByteArray
+	): ByteArray {
+		require(iv.size == IV_BYTE_LENGTH) { "IV must be 16 bytes long" }
+		return getCipher(key.algorithm).apply { init(Cipher.DECRYPT_MODE, key.key, IvParameterSpec(iv)) }.doFinal(encryptedData)
 	}
 }

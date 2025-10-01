@@ -3,6 +3,8 @@ package com.icure.kryptom.crypto
 import com.icure.kryptom.crypto.AesService.Companion.IV_BYTE_LENGTH
 import com.icure.kryptom.crypto.AesService.Companion.aesEncryptedSizeFor
 import com.icure.kryptom.utils.PlatformMethodException
+import kotlinx.cinterop.MemScope
+import kotlinx.cinterop.Pinned
 import kotlinx.cinterop.ULongVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
@@ -10,12 +12,18 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import platform.CoreCrypto.CCCrypt
+import platform.CoreCrypto.CCCryptorCreateWithMode
+import platform.CoreCrypto.CCCryptorFinal
+import platform.CoreCrypto.CCCryptorRefVar
+import platform.CoreCrypto.CCCryptorRelease
+import platform.CoreCrypto.CCCryptorUpdate
 import platform.CoreCrypto.kCCAlgorithmAES
 import platform.CoreCrypto.kCCDecrypt
 import platform.CoreCrypto.kCCEncrypt
 import platform.CoreCrypto.kCCKeySizeAES128
 import platform.CoreCrypto.kCCKeySizeAES256
+import platform.CoreCrypto.kCCModeCBC
+import platform.CoreCrypto.kCCModeCTR
 import platform.CoreCrypto.kCCOptionPKCS7Padding
 import platform.CoreCrypto.kCCSuccess
 
@@ -36,83 +44,188 @@ object IosAesService : AesService {
 		)
 
 	override suspend fun encrypt(data: ByteArray, key: AesKey<*>, iv: ByteArray?): ByteArray {
-		require (key.algorithm == AesAlgorithm.CbcWithPkcs7Padding) {
-			"Unsupported aes algorithm: ${key.algorithm}"
-		}
 		if (iv != null) require(iv.size == IV_BYTE_LENGTH) {
 			"Initialization vector must be $IV_BYTE_LENGTH bytes long (got ${iv.size})."
 		}
 		val generatedIv = iv ?: IosStrongRandom.randomBytes(IV_BYTE_LENGTH)
 		val outBytes = generatedIv.copyOf(IV_BYTE_LENGTH + aesEncryptedSizeFor(data.size))
-		memScoped {
-			val dataOutMoved = alloc<ULongVar>()
-			val operationResult = data.usePinned { pinnedData ->
+		return memScoped {
+			data.usePinned { pinnedData ->
 				generatedIv.usePinned { pinnedIv ->
 					outBytes.usePinned { pinnedOut ->
-						// TODO if in future we need to support anything other than CBC we will need to use `CCCryptorCreateWithMode`
 						key.rawKey.usePinned { pinnedKey ->
-							CCCrypt(
+							val cryptor = alloc<CCCryptorRefVar>()
+							CCCryptorCreateWithMode(
 								kCCEncrypt,
+								getCcMode(key.algorithm),
 								kCCAlgorithmAES,
 								kCCOptionPKCS7Padding,
+								pinnedIv.addressOf(0),
 								pinnedKey.addressOf(0),
 								validateAndGetKeySize(key),
-								pinnedIv.addressOf(0),
-								pinnedData.addressOf(0),
-								data.size.toULong(),
-								pinnedOut.addressOf(IV_BYTE_LENGTH),
-								(outBytes.size - IV_BYTE_LENGTH).toULong(),
-								dataOutMoved.ptr
-							)
+								null,
+								0.toULong(),
+								0,
+								0.toUInt(),
+								cryptor.ptr
+							).also {
+								if (it != kCCSuccess) throw PlatformMethodException(
+									"CCCryptorCreateWithMode (encrypt) failed with error code: $it",
+									it
+								)
+							}
+							try {
+								val dataOutMoved = alloc<ULongVar>()
+								var totalMoved = 0
+								CCCryptorUpdate(
+									cryptor.value,
+									pinnedData.addressOf(0),
+									data.size.toULong(),
+									pinnedOut.addressOf(IV_BYTE_LENGTH),
+									(outBytes.size - IV_BYTE_LENGTH).toULong(),
+									dataOutMoved.ptr
+								).also {
+									if (it != kCCSuccess) throw PlatformMethodException(
+										"CCCryptorUpdate (encrypt) failed with error code: $it",
+										it
+									)
+								}
+								totalMoved += dataOutMoved.value.toInt()
+								CCCryptorFinal(
+									cryptor.value,
+									pinnedOut.addressOf(IV_BYTE_LENGTH + totalMoved),
+									(outBytes.size - IV_BYTE_LENGTH - totalMoved).toULong(),
+									dataOutMoved.ptr
+								).also {
+									if (it != kCCSuccess) throw PlatformMethodException(
+										"CCCryptorFinal (encrypt) failed with error code: $it",
+										it
+									)
+								}
+								totalMoved += dataOutMoved.value.toInt()
+								if (totalMoved != (outBytes.size - IV_BYTE_LENGTH)) throw PlatformMethodException(
+									"Expected ${outBytes.size - IV_BYTE_LENGTH} encrypted bytes but got $totalMoved",
+									null
+								)
+								outBytes
+							} finally {
+								CCCryptorRelease(cryptor.value)
+							}
 						}
 					}
 				}
 			}
-			if (operationResult != kCCSuccess) throw PlatformMethodException(
-				"Encryption failed with error code $operationResult",
-				operationResult
-			)
-			if (dataOutMoved.value != (outBytes.size - IV_BYTE_LENGTH).toULong()) throw PlatformMethodException(
-				"Expected ${outBytes.size - IV_BYTE_LENGTH} encrypted bytes but got ${dataOutMoved.value}",
-				null
-			)
 		}
-		return outBytes
 	}
 
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
-		require (key.algorithm == AesAlgorithm.CbcWithPkcs7Padding) {
-			"Unsupported aes algorithm: ${key.algorithm}"
-		}
-		val outBytes = ByteArray(ivAndEncryptedData.size - IV_BYTE_LENGTH)
 		return memScoped {
-			val dataOutMoved = alloc<ULongVar>()
-			val operationResult = outBytes.usePinned { pinnedOutBytes ->
-				ivAndEncryptedData.usePinned { pinnedIvAndEncryptedData ->
+			ivAndEncryptedData.usePinned { pinnedIvAndEncryptedData ->
+				key.rawKey.usePinned { pinnedKey ->
+					doDecrypt(
+						algorithm = key.algorithm,
+						pinnedEncryptedData = pinnedIvAndEncryptedData,
+						encryptedDataOffset = IV_BYTE_LENGTH,
+						encryptedDataSize = ivAndEncryptedData.size - IV_BYTE_LENGTH,
+						pinnedIv = pinnedIvAndEncryptedData,
+						pinnedKey = pinnedKey,
+						keySize = validateAndGetKeySize(key)
+					)
+				}
+			}
+		}
+	}
+
+	override suspend fun decrypt(
+		encryptedData: ByteArray,
+		key: AesKey<*>,
+		iv: ByteArray
+	): ByteArray {
+		require(iv.size == IV_BYTE_LENGTH) { "IV must be 16 bytes long" }
+		return memScoped {
+			encryptedData.usePinned { pinnedEncryptedData ->
+				iv.usePinned { pinnedIv ->
 					key.rawKey.usePinned { pinnedKey ->
-						// TODO if in future we need to support anything other than CBC we will need to use `CCCryptorCreateWithMode`
-						CCCrypt(
-							kCCDecrypt,
-							kCCAlgorithmAES,
-							kCCOptionPKCS7Padding,
-							pinnedKey.addressOf(0),
-							validateAndGetKeySize(key),
-							pinnedIvAndEncryptedData.addressOf(0),
-							pinnedIvAndEncryptedData.addressOf(IV_BYTE_LENGTH),
-							(ivAndEncryptedData.size - IV_BYTE_LENGTH).toULong(),
-							pinnedOutBytes.addressOf(0),
-							outBytes.size.toULong(),
-							dataOutMoved.ptr
+						doDecrypt(
+							algorithm = key.algorithm,
+							pinnedEncryptedData = pinnedEncryptedData,
+							encryptedDataOffset = 0,
+							encryptedDataSize = encryptedData.size,
+							pinnedIv = pinnedIv,
+							pinnedKey = pinnedKey,
+							keySize = validateAndGetKeySize(key)
 						)
 					}
 				}
 			}
+		}
+	}
+
+	private fun MemScope.doDecrypt(
+		algorithm: AesAlgorithm,
+		pinnedEncryptedData: Pinned<ByteArray>,
+		encryptedDataOffset: Int,
+		encryptedDataSize: Int,
+		pinnedIv: Pinned<ByteArray>,
+		pinnedKey: Pinned<ByteArray>,
+		keySize: ULong,
+	): ByteArray {
+		val cryptor = alloc<CCCryptorRefVar>()
+		CCCryptorCreateWithMode(
+			kCCDecrypt,
+			getCcMode(algorithm),
+			kCCAlgorithmAES,
+			kCCOptionPKCS7Padding,
+			pinnedIv.addressOf(0),
+			pinnedKey.addressOf(0),
+			keySize,
+			null,
+			0.toULong(),
+			0,
+			0.toUInt(),
+			cryptor.ptr
+		).also {
 			// Refer to Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/include/CommonCrypto/CommonCryptoError.h
-			if (operationResult != kCCSuccess) throw PlatformMethodException(
-				"Decryption failed with error code: $operationResult",
-				operationResult
+			if (it != kCCSuccess) throw PlatformMethodException(
+				"CCCryptorCreateWithMode (decrypt) failed with error code: $it",
+				it
 			)
-			outBytes.copyOf(dataOutMoved.value.toInt())
+		}
+		return try {
+			val outBuffer = ByteArray(encryptedDataSize)
+			val dataOutMoved = alloc<ULongVar>()
+			var totalMoved = 0
+			outBuffer.usePinned { pinnedOut ->
+				CCCryptorUpdate(
+					cryptor.value,
+					pinnedEncryptedData.addressOf(encryptedDataOffset),
+					encryptedDataSize.toULong(),
+					pinnedOut.addressOf(0),
+					encryptedDataSize.toULong(),
+					dataOutMoved.ptr
+				).also {
+					if (it != kCCSuccess) throw PlatformMethodException(
+						"CCCryptorUpdate (decrypt) failed with error code: $it",
+						it
+					)
+				}
+				totalMoved += dataOutMoved.value.toInt()
+				CCCryptorFinal(
+					cryptor.value,
+					pinnedOut.addressOf(totalMoved),
+					(outBuffer.size - totalMoved).toULong(),
+					dataOutMoved.ptr
+				).also {
+					if (it != kCCSuccess) throw PlatformMethodException(
+						"CCCryptorFinal (decrypt) failed with error code: $it",
+						it
+					)
+				}
+				totalMoved += dataOutMoved.value.toInt()
+			}
+			outBuffer.copyOf(totalMoved)
+		} finally {
+			CCCryptorRelease(cryptor.value)
 		}
 	}
 
@@ -121,5 +234,11 @@ object IosAesService : AesService {
 		// AesCryptoService.KeySize.AES_192.byteSize.toULong() -> kCCKeySizeAES192.toULong()
 		AesService.KeySize.Aes256.byteSize -> kCCKeySizeAES256.toULong()
 		else -> throw IllegalArgumentException("Invalid size for key: ${key.rawKey.size}")
+	}
+
+	private fun getCcMode(
+		algorithm: AesAlgorithm
+	): UInt = when (algorithm) {
+		AesAlgorithm.CbcWithPkcs7Padding -> kCCModeCBC
 	}
 }

@@ -6,11 +6,13 @@ import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.Pinned
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import libcrypto.EVP_CIPHER
 import libcrypto.EVP_CIPHER_CTX_free
@@ -22,7 +24,9 @@ import libcrypto.EVP_EncryptFinal_ex
 import libcrypto.EVP_EncryptInit_ex
 import libcrypto.EVP_EncryptUpdate
 import libcrypto.EVP_aes_128_cbc
+import libcrypto.EVP_aes_128_ctr
 import libcrypto.EVP_aes_256_cbc
+import libcrypto.EVP_aes_256_ctr
 
 @OptIn(ExperimentalForeignApi::class)
 object OpensslAesService : AesService {
@@ -42,9 +46,6 @@ object OpensslAesService : AesService {
         )
 
     override suspend fun encrypt(data: ByteArray, key: AesKey<*>, iv: ByteArray?): ByteArray {
-        require (key.algorithm == AesAlgorithm.CbcWithPkcs7Padding) {
-            "Unsupported aes algorithm: ${key.algorithm}"
-        }
         if (iv != null) require(iv.size == IV_BYTE_LENGTH) {
             "Initialization vector must be $IV_BYTE_LENGTH bytes long (got ${iv.size})."
         }
@@ -95,34 +96,67 @@ object OpensslAesService : AesService {
         return output
     }
 
-    override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
-        require (key.algorithm == AesAlgorithm.CbcWithPkcs7Padding) {
-            "Unsupported aes algorithm: ${key.algorithm}"
+    override suspend fun decrypt(
+        encryptedData: ByteArray,
+        key: AesKey<*>,
+        iv: ByteArray
+    ): ByteArray {
+        require(iv.size == IV_BYTE_LENGTH) { "IV must be 16 bytes long" }
+        return encryptedData.asUByteArray().usePinned { pinnedEncryptedData ->
+            iv.asUByteArray().usePinned { pinnedIv ->
+                doDecrypt(
+                    key,
+                    pinnedEncryptedData,
+                    0,
+                    encryptedData.size,
+                    pinnedIv
+                )
+            }
         }
+    }
+
+    override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
+        return ivAndEncryptedData.asUByteArray().usePinned { pinnedData ->
+            doDecrypt(
+                key,
+                pinnedData,
+                IV_BYTE_LENGTH,
+                ivAndEncryptedData.size - IV_BYTE_LENGTH,
+                pinnedData
+            )
+        }
+    }
+
+    private fun doDecrypt(
+        key: AesKey<*>,
+        pinnedEncryptedData: Pinned<UByteArray>,
+        encryptedDataOffset: Int,
+        encryptedDataSize: Int,
+        pinnedIv: Pinned<UByteArray>,
+    ): ByteArray {
         val cipher = validateKeyAndGetCipher(key)
+        // This is a tiny bit too big, but better leave a bit of margin.
+        val output = ByteArray(encryptedDataSize)
         val ctx = EVP_CIPHER_CTX_new() ?: throw PlatformMethodException("Could not initialise context", null)
-        val pinnedInput = ivAndEncryptedData.asUByteArray().pin()
         val rawKey = key.rawKey.asUByteArray().pin()
-        // This is a tiny bit too big, but better leave a bit of margin. Removing the IV length should still be fine
-        val output = ByteArray(ivAndEncryptedData.size)
         val pinnedOutput = output.asUByteArray().pin()
         return memScoped {
-            val writtenBytes = alloc<Int>(0)
-            var totalSize = 0
             try {
+                val writtenBytes = alloc<Int>(0)
+                var totalSize = 0
                 EVP_DecryptInit_ex(
                     ctx,
                     cipher,
                     null,
                     rawKey.addressOf(0),
-                    pinnedInput.addressOf(0),
+                    pinnedIv.addressOf(0),
                 ).ensureEvpSuccess("EVP_DecryptInit_ex")
                 EVP_DecryptUpdate(
                     ctx,
                     pinnedOutput.addressOf(0),
                     writtenBytes.ptr,
-                    pinnedInput.addressOf(IV_BYTE_LENGTH),
-                    ivAndEncryptedData.size - IV_BYTE_LENGTH
+                    pinnedEncryptedData.addressOf(encryptedDataOffset),
+                    encryptedDataSize
                 ).ensureEvpSuccess("EVP_DecryptUpdate")
                 totalSize += writtenBytes.value
                 check(totalSize < output.size) { "Output buffer was not big enough" }
@@ -135,7 +169,6 @@ object OpensslAesService : AesService {
                 check(totalSize < output.size) { "Output buffer was not big enough" }
                 output.sliceArray(0 until totalSize)
             } finally {
-                pinnedInput.unpin()
                 rawKey.unpin()
                 pinnedOutput.unpin()
                 EVP_CIPHER_CTX_free(ctx)
@@ -143,11 +176,16 @@ object OpensslAesService : AesService {
         }
     }
 
-    private fun validateKeyAndGetCipher(key: AesKey<*>): CPointer<EVP_CIPHER> = checkNotNull(
-        when (key.rawKey.size) {
-            AesService.KeySize.Aes128.byteSize -> EVP_aes_128_cbc()
-            AesService.KeySize.Aes256.byteSize -> EVP_aes_256_cbc()
+    private fun validateKeyAndGetCipher(key: AesKey<*>): CPointer<EVP_CIPHER> {
+        val is256 = when (key.rawKey.size) {
+            AesService.KeySize.Aes128.byteSize -> false
+            AesService.KeySize.Aes256.byteSize -> true
             else -> throw IllegalArgumentException("Invalid size for key: ${key.rawKey.size}")
         }
-    ) { "EVP cipher is null" }
+        return checkNotNull(
+            when (key.algorithm) {
+                AesAlgorithm.CbcWithPkcs7Padding -> if (is256) EVP_aes_256_cbc() else EVP_aes_128_cbc()
+            }
+        ) { "EVP cipher is null" }
+    }
 }
