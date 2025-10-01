@@ -5,8 +5,9 @@ import java.util.*
 
 plugins {
 	kotlinMultiplatform()
-	kotestMultiplatform()
+	kotest()
 	androidLibrary()
+	ksp()
 	id("maven-publish")
 	signing
 	id("com.vanniktech.maven.publish") version "0.34.0"
@@ -32,7 +33,7 @@ kotlin {
 	val xcf = XCFramework(frameworkName)
 	jvm {
 		compilerOptions {
-			jvmTarget.set(JvmTarget.JVM_1_8)
+			jvmTarget.set(JvmTarget.JVM_11)
 		}
 	}
 	js(IR) {
