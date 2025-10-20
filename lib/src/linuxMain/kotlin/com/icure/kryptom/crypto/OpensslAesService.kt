@@ -28,7 +28,7 @@ import libcrypto.EVP_aes_256_cbc
 object OpensslAesService : AesService {
     override suspend fun <A : AesAlgorithm> generateKey(algorithm: A, size: AesService.KeySize): AesKey<A> =
         AesKey(
-            OpensslStrongRandom.randomBytes(size.byteSize),
+            OpensslStrongRandom.randomPrivateBytes(size.byteSize),
             algorithm
         )
 
