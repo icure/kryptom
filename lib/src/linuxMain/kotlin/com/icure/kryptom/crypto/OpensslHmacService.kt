@@ -24,7 +24,7 @@ object OpensslHmacService : HmacService {
         require(keySize == null || keySize >= algorithm.minimumKeySize) {
             "Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
         }
-        return HmacKey(OpensslStrongRandom.randomBytes(keySize ?: algorithm.recommendedKeySize), algorithm)
+        return HmacKey(OpensslStrongRandom.randomPrivateBytes(keySize ?: algorithm.recommendedKeySize), algorithm)
     }
 
     override suspend fun exportKey(key: HmacKey<*>): ByteArray =
