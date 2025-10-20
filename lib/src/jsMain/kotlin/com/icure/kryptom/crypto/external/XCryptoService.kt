@@ -28,8 +28,8 @@ import kotlin.js.Promise
  * Adapts an external implementation of a crypto service to use the same interface as kryptom. This allows connecting to
  * native implementations of cryptographic operations when using kryptom-ts from react-native.
  */
-fun adaptExternalCryptoService(service: XCryptoService): CryptoService =
-	if (service is XServiceAdapter) service.service else ServiceAdapter(service)
+fun adaptExternalCryptoService(service: PartialXCryptoService): CryptoService =
+	if (service is XServiceAdapter) service.service else ServiceAdapter(completePartialCryptoService(service))
 
 /**
  * Adapts a kotlin implementation of a crypto service to an interface suitable for Typescript.
@@ -38,12 +38,23 @@ fun adaptExternalCryptoService(service: XCryptoService): CryptoService =
 fun adaptCryptoServiceForExternal(service: CryptoService): XCryptoService =
 	if (service is ServiceAdapter) service.service else XServiceAdapter(service)
 
-external interface XCryptoService {
+external interface PartialXCryptoService {
 	val aes: XAesService
 	val digest: XDigestService
-	val rsa: XRsaService
-	val strongRandom: XStrongRandom
+	val rsa: PartialXRsaService
+	val strongRandom: PartialXStrongRandom
 	val hmac: XHmacService
+}
+
+external interface XCryptoService : PartialXCryptoService {
+	override val rsa: XRsaService
+	override val strongRandom: XStrongRandom
+}
+
+fun completePartialCryptoService(service: PartialXCryptoService): XCryptoService {
+	val fullRsa = completePartialRsa(service.rsa)
+	val fullStrongRandom = completePartialStrongRandom(service.strongRandom)
+	return js("{ aes: service.aes, digest: service.digest, rsa: fullRsa, strongRandom: fullStrongRandom, hmac: service.hmac }")
 }
 
 private class ServiceAdapter(
@@ -309,8 +320,7 @@ private class StrongRandomAdapter(
 	private val service: XStrongRandom
 ) : StrongRandom {
 	override fun fill(array: ByteArray) {
-		val random = service.randomBytes(array.size)
-		random.copyInto(array)
+		service.fill(array)
 	}
 
 	override fun randomBytes(length: Int): ByteArray =
@@ -323,6 +333,9 @@ private class StrongRandomAdapter(
 private class XStrongRandomAdapter(
 	private val service: StrongRandom
 ) : XStrongRandom {
+	override fun fill(array: ByteArray) =
+		service.fill(array)
+
 	override fun randomBytes(length: Int): ByteArray =
 		service.randomBytes(length)
 
