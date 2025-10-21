@@ -1,22 +1,29 @@
 package com.icure.kryptom.crypto
 
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
+import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.allocArrayOf
+import kotlinx.cinterop.cstr
+import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
-import libcrypto.EVP_DigestSignInit
+import libcrypto.EVP_MAC_CTX_free
+import libcrypto.EVP_MAC_CTX_new
+import libcrypto.EVP_MAC_fetch
+import libcrypto.EVP_MAC_final
+import libcrypto.EVP_MAC_free
+import libcrypto.EVP_MAC_init
+import libcrypto.EVP_MAC_update
 import libcrypto.EVP_MAX_MD_SIZE
-import libcrypto.EVP_sha256
-import libcrypto.EVP_sha512
-import libcrypto.HMAC_CTX_free
-import libcrypto.HMAC_CTX_new
-import libcrypto.HMAC_Final
-import libcrypto.HMAC_Init_ex
-import libcrypto.HMAC_Update
+import libcrypto.OSSL_LIB_CTX_free
+import libcrypto.OSSL_LIB_CTX_new
+import libcrypto.OSSL_PARAM_construct_end
+import libcrypto.OSSL_PARAM_construct_utf8_string
 
 @OptIn(ExperimentalForeignApi::class)
 object OpensslHmacService : HmacService {
@@ -37,45 +44,46 @@ object OpensslHmacService : HmacService {
         return HmacKey(bytes.copyOf(), algorithm)
     }
 
+    private fun digestNameForAlgorithm(alg: HmacAlgorithm) = when (alg) {
+		HmacAlgorithm.HmacSha256 -> "sha256"
+		HmacAlgorithm.HmacSha512 -> "sha512"
+	}
+
     override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray {
-        require(key.algorithm == HmacAlgorithm.HmacSha512 || key.algorithm == HmacAlgorithm.HmacSha256) {
-            "Unsupported hmac algorithm: ${key.algorithm}"
-        }
-        val ctx = HMAC_CTX_new()
-        val rawKey = key.rawKey.asUByteArray().pin()
-        val pinnedData = data.asUByteArray().pin()
-        val output = ByteArray(EVP_MAX_MD_SIZE)
-        val pinnedOutput = output.asUByteArray().pin()
-        return memScoped {
-            val writtenBytes = alloc(0.toUInt())
-            try {
-                HMAC_Init_ex(
-                    ctx,
-                    rawKey.addressOf(0),
-                    key.rawKey.size,
-                    EVP_sha512(),
-                    null
-                ).ensureEvpSuccess("HMAC_Init_ex")
-                HMAC_Update(
-                    ctx,
-                    pinnedData.addressOf(0),
-                    data.size.toULong()
-                ).ensureEvpSuccess("HMAC_Update")
-                HMAC_Final(
-                    ctx,
-                    pinnedOutput.addressOf(0),
-                    writtenBytes.ptr
-                ).ensureEvpSuccess("HMAC_Final")
-                check(writtenBytes.value <= EVP_MAX_MD_SIZE.toULong()) {
-                    "Unexpected amount of bytes written"
+        val digestName = digestNameForAlgorithm(key.algorithm)
+        val libCtx = OSSL_LIB_CTX_new()
+        val mac = libCtx?.let { EVP_MAC_fetch(it, "HMAC", null) }
+        val ctx = mac?.let { EVP_MAC_CTX_new(it) }
+        try {
+            if (ctx == null) throw PlatformMethodException("HMAC context initialization failed", null)
+
+            val rawKey = key.rawKey.asUByteArray().pin()
+            val pinnedData = data.asUByteArray().pin()
+            val output = ByteArray(EVP_MAX_MD_SIZE)
+            val pinnedOutput = output.asUByteArray().pin()
+            memScoped {
+                val outLength = alloc(0.toULong())
+                val params = allocArrayOf(
+                    OSSL_PARAM_construct_utf8_string("digest", digestName.cstr, digestName.length.toULong()).ptr,
+                    OSSL_PARAM_construct_end().ptr
+                )
+                try {
+                    EVP_MAC_init(ctx, rawKey.addressOf(0), key.rawKey.size.toULong(), params[0]).ensureEvpSuccess("EVP_MAC_init")
+                    EVP_MAC_update(ctx, pinnedData.addressOf(0), data.size.toULong())
+                    EVP_MAC_final(ctx, null, outLength.ptr, 0.toULong()).ensureEvpSuccess("EVP_MAC_final (get size)")
+                    check(outLength.value == output.size.toULong()) { "Unexpected output size - expected ${output.size}, required ${outLength.value}" }
+                    EVP_MAC_final(ctx, pinnedOutput.addressOf(0), outLength.ptr, output.size.toULong()).ensureEvpSuccess("EVP_MAC_final")
+                    check(outLength.value == output.size.toULong()) { "Unexpected output size written - expected ${output.size}, written ${outLength.value}" }
+                } finally {
+                    pinnedData.unpin()
+                    pinnedOutput.unpin()
                 }
-                output.sliceArray(0 until writtenBytes.value.toInt())
-            } finally {
-                rawKey.unpin()
-                pinnedData.unpin()
-                pinnedOutput.unpin()
-                HMAC_CTX_free(ctx)
             }
+            return output
+        } finally {
+            EVP_MAC_CTX_free(ctx);
+            EVP_MAC_free(mac);
+            OSSL_LIB_CTX_free(libCtx);
         }
     }
 
