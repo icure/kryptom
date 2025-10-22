@@ -2,6 +2,7 @@ package com.icure.kryptom.crypto
 
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
+import com.icure.kryptom.utils.writingToBio
 import kotlinx.cinterop.CArrayPointer
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.CVariable
@@ -13,12 +14,16 @@ import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.get
+import kotlinx.cinterop.interpretCPointer
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.value
+import libcrypto.ERR_peek_error
+import libcrypto.ERR_print_errors
 import libcrypto.EVP_MAC_CTX_free
 import libcrypto.EVP_MAC_CTX_new
 import libcrypto.EVP_MAC_fetch
@@ -53,27 +58,27 @@ object OpensslHmacService : HmacService {
     }
 
     private fun digestNameForAlgorithm(alg: HmacAlgorithm) = when (alg) {
-		HmacAlgorithm.HmacSha256 -> "sha256"
-		HmacAlgorithm.HmacSha512 -> "sha512"
+		HmacAlgorithm.HmacSha256 -> "SHA-256"
+		HmacAlgorithm.HmacSha512 -> "SHA-512"
 	}
 
     override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray = memScoped {
         val digestName = digestNameForAlgorithm(key.algorithm)
-        val libCtx = OSSL_LIB_CTX_new()
-        val mac = libCtx?.let { EVP_MAC_fetch(it, "HMAC", null) }
+        val mac = EVP_MAC_fetch(null, "HMAC", null)
         val ctx = mac?.let { EVP_MAC_CTX_new(it) }
         try {
             if (ctx == null) throw PlatformMethodException("HMAC context initialization failed", null)
 
             val rawKey = key.rawKey.asUByteArray().pin()
             val pinnedData = data.asUByteArray().pin()
-            val output = ByteArray(EVP_MAX_MD_SIZE)
+            val output = ByteArray(key.algorithm.digestSize)
             val pinnedOutput = output.asUByteArray().pin()
             val outLength = alloc(0.toULong())
+            // For a DSL to setup OSSL_PARAM can check https://github.com/whyoleg/cryptography-kotlin/blob/28457b8e16111b45ba55d708fda3939260932003/cryptography-providers/openssl3/api/src/commonMain/kotlin/internal/arrays.kt#L1-L27
             val params = allocArray<OSSL_PARAM>(2)
-            // For a DSL can check https://github.com/whyoleg/cryptography-kotlin/blob/28457b8e16111b45ba55d708fda3939260932003/cryptography-providers/openssl3/api/src/commonMain/kotlin/internal/arrays.kt#L1-L27
-            OSSL_PARAM_construct_utf8_string("digest", digestName.cstr, digestName.length.toULong()).place(params[0].ptr)
+            OSSL_PARAM_construct_utf8_string(null, digestName.cstr.ptr, digestName.length.toULong()).place(params[0].ptr)
             OSSL_PARAM_construct_end().place(params[1].ptr)
+            interpretCPointer<OSSL_PARAM>(params[0].ptr.rawValue)!!.pointed.key = "digest".cstr.ptr // TODO Should be able to set it in OSSL_PARAM_construct_utf8_string, but passing a normal string doesn't work, and kotlin doesn't compile if passing cstr.ptr
             try {
                 EVP_MAC_init(ctx, rawKey.addressOf(0), key.rawKey.size.toULong(), params).ensureEvpSuccess("EVP_MAC_init")
                 EVP_MAC_update(ctx, pinnedData.addressOf(0), data.size.toULong())
@@ -87,9 +92,8 @@ object OpensslHmacService : HmacService {
                 pinnedOutput.unpin()
             }
         } finally {
-            EVP_MAC_CTX_free(ctx);
-            EVP_MAC_free(mac);
-            OSSL_LIB_CTX_free(libCtx);
+            EVP_MAC_CTX_free(ctx)
+            EVP_MAC_free(mac)
         }
     }
 

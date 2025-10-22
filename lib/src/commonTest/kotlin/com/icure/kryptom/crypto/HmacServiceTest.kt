@@ -1,6 +1,7 @@
 package com.icure.kryptom.crypto
 
 import com.icure.kryptom.utils.base64Decode
+import com.icure.kryptom.utils.base64Encode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -122,6 +123,7 @@ class HmacServiceTest : StringSpec({
 				val key = importedKeys[keyIndex]
 				val dataString = data[dataIndex]
 				val signatureBytes = base64Decode(signature)
+                base64Encode(defaultCryptoService.hmac.sign(dataString.encodeToByteArray(), key)) shouldBe signature
 				defaultCryptoService.hmac.verify(
 					signatureBytes,
 					dataString.encodeToByteArray(),
