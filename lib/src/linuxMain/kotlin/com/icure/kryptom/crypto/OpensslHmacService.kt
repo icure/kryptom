@@ -2,16 +2,10 @@ package com.icure.kryptom.crypto
 
 import com.icure.kryptom.utils.OpensslErrorHandling.ensureEvpSuccess
 import com.icure.kryptom.utils.PlatformMethodException
-import com.icure.kryptom.utils.writingToBio
-import kotlinx.cinterop.CArrayPointer
-import kotlinx.cinterop.CValue
-import kotlinx.cinterop.CVariable
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.NativePlacement
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
-import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.get
 import kotlinx.cinterop.interpretCPointer
@@ -19,11 +13,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.value
-import libcrypto.ERR_peek_error
-import libcrypto.ERR_print_errors
 import libcrypto.EVP_MAC_CTX_free
 import libcrypto.EVP_MAC_CTX_new
 import libcrypto.EVP_MAC_fetch
@@ -31,9 +21,6 @@ import libcrypto.EVP_MAC_final
 import libcrypto.EVP_MAC_free
 import libcrypto.EVP_MAC_init
 import libcrypto.EVP_MAC_update
-import libcrypto.EVP_MAX_MD_SIZE
-import libcrypto.OSSL_LIB_CTX_free
-import libcrypto.OSSL_LIB_CTX_new
 import libcrypto.OSSL_PARAM
 import libcrypto.OSSL_PARAM_construct_end
 import libcrypto.OSSL_PARAM_construct_utf8_string
