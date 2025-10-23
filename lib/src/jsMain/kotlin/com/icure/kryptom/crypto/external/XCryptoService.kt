@@ -18,6 +18,7 @@ import com.icure.kryptom.crypto.RsaAlgorithm
 import com.icure.kryptom.crypto.RsaKeypair
 import com.icure.kryptom.crypto.RsaService
 import com.icure.kryptom.crypto.StrongRandom
+import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.await
@@ -57,6 +58,23 @@ fun completePartialCryptoService(service: PartialXCryptoService): XCryptoService
 	return js("{ aes: service.aes, digest: service.digest, rsa: fullRsa, strongRandom: fullStrongRandom, hmac: service.hmac }")
 }
 
+private inline fun <T> wrappingNativeExceptions(block: () -> T): T =
+	try {
+		block()
+	} catch (e: dynamic) {
+		if (e is Throwable) {
+			throw ExternalCryptoServiceException(
+				"An external crypto service method failed",
+				e
+			)
+		} else {
+			throw ExternalCryptoServiceException(
+				"An external crypto service method failed with non-throwable - $e",
+				null
+			)
+		}
+	}
+
 private class ServiceAdapter(
 	val service: XCryptoService
 ) : CryptoService {
@@ -81,19 +99,19 @@ private class AesServiceAdapter(
 	private val service: XAesService
 ) : AesService {
 	override suspend fun <A : AesAlgorithm> generateKey(algorithm: A, size: AesService.KeySize): AesKey<A> =
-		service.generateKey(algorithm.identifier, size.bitSize).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.generateKey(algorithm.identifier, size.bitSize).await().toKryptom(algorithm) }
 
 	override suspend fun exportKey(key: AesKey<*>): ByteArray =
-		service.exportKey(key.toExternal()).await()
+		wrappingNativeExceptions { service.exportKey(key.toExternal()).await() }
 
 	override suspend fun <A : AesAlgorithm> loadKey(algorithm: A, bytes: ByteArray): AesKey<A> =
-		service.loadKey(algorithm.identifier, bytes).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadKey(algorithm.identifier, bytes).await().toKryptom(algorithm) }
 
 	override suspend fun encrypt(data: ByteArray, key: AesKey<*>, iv: ByteArray?): ByteArray =
-		service.encrypt(data, key.toExternal(), iv).await()
+		wrappingNativeExceptions { service.encrypt(data, key.toExternal(), iv).await() }
 
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray =
-		service.decrypt(ivAndEncryptedData, key.toExternal()).await()
+		wrappingNativeExceptions { service.decrypt(ivAndEncryptedData, key.toExternal()).await() }
 }
 
 private class XAesServiceAdapter(
@@ -124,10 +142,10 @@ private class DigestServiceAdapter(
 	private val service: XDigestService
 ) : DigestService {
 	override suspend fun sha256(data: ByteArray): ByteArray =
-		service.sha256(data).await()
+		wrappingNativeExceptions { service.sha256(data).await() }
 
 	override suspend fun sha512(data: ByteArray): ByteArray =
-		service.sha512(data).await()
+		wrappingNativeExceptions { service.sha512(data).await() }
 }
 
 private class XDigestServiceAdapter(
@@ -147,19 +165,19 @@ private class HmacServiceAdapter(
 	private val service: XHmacService
 ) : HmacService {
 	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> =
-		service.generateKey(algorithm.identifier, keySize).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.generateKey(algorithm.identifier, keySize).await().toKryptom(algorithm) }
 
 	override suspend fun exportKey(key: HmacKey<*>): ByteArray =
-		service.exportKey(key.toExternal()).await()
+		wrappingNativeExceptions { service.exportKey(key.toExternal()).await() }
 
 	override suspend fun <A : HmacAlgorithm> loadKey(algorithm: A, bytes: ByteArray): HmacKey<A> =
-		service.loadKey(algorithm.identifier, bytes).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadKey(algorithm.identifier, bytes).await().toKryptom(algorithm) }
 
 	override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray =
-		service.sign(data, key.toExternal()).await()
+		wrappingNativeExceptions { service.sign(data, key.toExternal()).await() }
 
 	override suspend fun verify(signature: ByteArray, data: ByteArray, key: HmacKey<*>): Boolean =
-		service.verify(signature, data, key.toExternal()).await()
+		wrappingNativeExceptions { service.verify(signature, data, key.toExternal()).await() }
 }
 
 private class XHmacServiceAdapter(
@@ -190,68 +208,68 @@ private class RsaServiceAdapter(
 	private val service: XRsaService
 ) : RsaService {
 	override suspend fun <A : RsaAlgorithm> generateKeyPair(algorithm: A, keySize: RsaService.KeySize): RsaKeypair<A> =
-		service.generateKeyPair(algorithm.identifier, keySize.bitSize).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.generateKeyPair(algorithm.identifier, keySize.bitSize).await().toKryptom(algorithm) }
 
 	override suspend fun exportPrivateKeyPkcs8(key: PrivateRsaKey<*>): ByteArray =
-		service.exportPrivateKeyPkcs8(key.toExternal()).await()
+		wrappingNativeExceptions { service.exportPrivateKeyPkcs8(key.toExternal()).await() }
 
 	override suspend fun <A : RsaAlgorithm> loadPrivateKeyPkcs8(
 		algorithm: A,
 		privateKeyPkcs8: ByteArray
 	): PrivateRsaKey<A> =
-		service.loadPrivateKeyPkcs8(algorithm.identifier, privateKeyPkcs8).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadPrivateKeyPkcs8(algorithm.identifier, privateKeyPkcs8).await().toKryptom(algorithm) }
 
 	override suspend fun exportPublicKeySpki(key: PublicRsaKey<*>): ByteArray =
-		service.exportPublicKeySpki(key.toExternal()).await()
+		wrappingNativeExceptions { service.exportPublicKeySpki(key.toExternal()).await() }
 
 	override suspend fun <A : RsaAlgorithm> loadKeyPairPkcs8(algorithm: A, privateKeyPkcs8: ByteArray): RsaKeypair<A> =
-		service.loadKeyPairPkcs8(algorithm.identifier, privateKeyPkcs8).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadKeyPairPkcs8(algorithm.identifier, privateKeyPkcs8).await().toKryptom(algorithm) }
 
 	override suspend fun <A : RsaAlgorithm> loadPublicKeySpki(algorithm: A, publicKeySpki: ByteArray): PublicRsaKey<A> =
-		service.loadPublicKeySpki(algorithm.identifier, publicKeySpki).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadPublicKeySpki(algorithm.identifier, publicKeySpki).await().toKryptom(algorithm) }
 
 	override suspend fun encrypt(
 		data: ByteArray,
 		publicKey: PublicRsaKey<RsaAlgorithm.RsaEncryptionAlgorithm>
 	): ByteArray =
-		service.encrypt(data, publicKey.toExternal()).await()
+		wrappingNativeExceptions { service.encrypt(data, publicKey.toExternal()).await() }
 
 	override suspend fun decrypt(
 		data: ByteArray,
 		privateKey: PrivateRsaKey<RsaAlgorithm.RsaEncryptionAlgorithm>
 	): ByteArray =
-		service.decrypt(data, privateKey.toExternal()).await()
+		wrappingNativeExceptions { service.decrypt(data, privateKey.toExternal()).await() }
 
 	override suspend fun sign(
 		data: ByteArray,
 		privateKey: PrivateRsaKey<RsaAlgorithm.RsaSignatureAlgorithm>
 	): ByteArray =
-		service.sign(data, privateKey.toExternal()).await()
+		wrappingNativeExceptions { service.sign(data, privateKey.toExternal()).await() }
 
 	override suspend fun verifySignature(
 		signature: ByteArray,
 		data: ByteArray,
 		publicKey: PublicRsaKey<RsaAlgorithm.RsaSignatureAlgorithm>
 	): Boolean =
-		service.verifySignature(signature, data, publicKey.toExternal()).await()
+		wrappingNativeExceptions { service.verifySignature(signature, data, publicKey.toExternal()).await() }
 
 	override suspend fun exportPrivateKeyJwk(key: PrivateRsaKey<*>): PrivateRsaKeyJwk =
-		service.exportPrivateKeyJwk(key.toExternal()).await().toPrivateJwk()
+		wrappingNativeExceptions { service.exportPrivateKeyJwk(key.toExternal()).await().toPrivateJwk() }
 
 	override suspend fun exportPublicKeyJwk(key: PublicRsaKey<*>): PublicRsaKeyJwk =
-		service.exportPublicKeyJwk(key.toExternal()).await().toPublicJwk()
+		wrappingNativeExceptions { service.exportPublicKeyJwk(key.toExternal()).await().toPublicJwk() }
 
 	override suspend fun <A : RsaAlgorithm> loadPrivateKeyJwk(
 		algorithm: A,
 		privateKeyJwk: PrivateRsaKeyJwk
 	): PrivateRsaKey<A> =
-		service.loadPrivateKeyJwk(privateKeyJwk.toPrivateJwk()).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadPrivateKeyJwk(privateKeyJwk.toPrivateJwk()).await().toKryptom(algorithm) }
 
 	override suspend fun <A : RsaAlgorithm> loadPublicKeyJwk(
 		algorithm: A,
 		publicKeyJwk: PublicRsaKeyJwk
 	): PublicRsaKey<A> =
-		service.loadPublicKeyJwk(publicKeyJwk.toPublicJwk()).await().toKryptom(algorithm)
+		wrappingNativeExceptions { service.loadPublicKeyJwk(publicKeyJwk.toPublicJwk()).await().toKryptom(algorithm) }
 }
 
 private class XRsaServiceAdapter(
@@ -320,14 +338,14 @@ private class StrongRandomAdapter(
 	private val service: XStrongRandom
 ) : StrongRandom {
 	override fun fill(array: ByteArray) {
-		service.fill(array)
+		wrappingNativeExceptions { service.fill(array) }
 	}
 
 	override fun randomBytes(length: Int): ByteArray =
-		service.randomBytes(length)
+		wrappingNativeExceptions { service.randomBytes(length) }
 
 	override fun randomUUID(): String =
-		service.randomUUID()
+		wrappingNativeExceptions { service.randomUUID() }
 }
 
 private class XStrongRandomAdapter(
