@@ -19,7 +19,7 @@ val repoUsername: String by project
 val repoPassword: String by project
 val mavenReleasesRepository: String by project
 
-project.version = "1.3.1"
+project.version = "1.4.0"
 
 val localProperties = Properties().apply {
 	kotlin.runCatching {
@@ -27,7 +27,6 @@ val localProperties = Properties().apply {
 	}
 }
 
-@OptIn(ExperimentalKotlinGradlePluginApi::class)
 kotlin {
 	val frameworkName = "Kryptom"
 	val xcf = XCFramework(frameworkName)
