@@ -15,5 +15,6 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://maven.taktik.be/content/groups/public") }
+        mavenLocal()
     }
 }

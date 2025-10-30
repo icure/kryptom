@@ -1,5 +1,7 @@
 package com.icure.kryptom.crypto
 
+import com.icure.kryptom.js.defaultJsCryptoAvailable
+
 /**
  * Gives access to cryptographic functions.
  */
@@ -15,3 +17,4 @@ actual val defaultCryptoService: CryptoService = object : CryptoService {
 	override val hmac: HmacService = JsHmacService
 }
 
+actual val defaultCryptoServiceAvailable get() = defaultJsCryptoAvailable()

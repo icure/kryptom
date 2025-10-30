@@ -4,7 +4,7 @@ kotest = "6.0.3"
 androidLibrary = "8.2.2"
 bouncyCastle = "1.82"
 kotlinIo = "0.8.0"
-kotlinCoroutines = "1.9.0"
+kotlinCoroutines = "1.10.2"
 ksp = "2.2.20-2.0.3"
 
 [libraries]

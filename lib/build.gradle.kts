@@ -44,9 +44,8 @@ kotlin {
 				}
 			}
 		}
-		nodejs {
-			version = "20.13.1"
-		}
+		nodejs()
+		useEsModules()
 		binaries.library()
 		generateTypeScriptDefinitions()
 	}

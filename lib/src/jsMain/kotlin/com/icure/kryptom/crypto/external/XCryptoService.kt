@@ -64,7 +64,7 @@ private inline fun <T> wrappingNativeExceptions(block: () -> T): T =
 	} catch (e: dynamic) {
 		if (e is Throwable) {
 			throw ExternalCryptoServiceException(
-				"An external crypto service method failed",
+				"An external crypto service method failed - ${e.message}",
 				e
 			)
 		} else {

@@ -14,3 +14,5 @@ actual val defaultCryptoService: CryptoService = object : CryptoService {
 
 	override val hmac: HmacService = IosHmacService
 }
+
+actual val defaultCryptoServiceAvailable = true
