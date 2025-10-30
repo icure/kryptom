@@ -18,13 +18,21 @@ private fun hasNodeApi(): Boolean = js(
 """
 )
 
+internal val jsCrypto: Crypto get() = checkNotNull(jsCryptoOrNull) {
+	"""
+	Js crypto or crypto.subtle is not available.
+	To use kryptom with node and ES modules you need to use node 19 or later.
+	To use kryptom in expo / react native use the @icure/nitro-kryptom npm package.
+	""".trimIndent()
+}
+
 /**
  * Implementation based on
  * [ktor](https://github.com/ktorio/ktor/blob/8efb61fcc2/ktor-utils/js/src/io/ktor/util/CryptoJs.kt#L47)
  * Global instance of [Crypto].
  */
-internal val jsCrypto: Crypto by lazy {
-	val loaded = if (hasNodeApi()) {
+private val jsCryptoOrNull: Crypto? by lazy {
+	val crypto = if (hasNodeApi()) {
 		//language=JavaScript
 		js("""
 			typeof crypto != 'undefined' 
@@ -37,15 +45,12 @@ internal val jsCrypto: Crypto by lazy {
 		//language=JavaScript
 		js("(window ? (window.crypto ? window.crypto : window.msCrypto) : self.crypto)")
 	}
-	if (loaded == null) {
-		throw IllegalStateException("""
-			Js crypto is not available.
-			To use kryptom with node and ES modules you need to use node 19 or later.
-			To use kryptom in expo / react native use the @icure/expo-kryptom npm package.
-		""".trimIndent())
-	}
-	loaded
+	// Note: crypto is dynamic, can't use takeIf
+	if (crypto?.subtle != null) crypto else null
 }
+
+fun defaultJsCryptoAvailable(): Boolean =
+	jsCryptoOrNull != null
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/API/Crypto

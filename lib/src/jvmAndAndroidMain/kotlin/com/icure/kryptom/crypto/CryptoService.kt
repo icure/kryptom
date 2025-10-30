@@ -20,3 +20,5 @@ actual val defaultCryptoService = object : CryptoService {
 }
 
 expect fun initCryptoProvider()
+
+actual val defaultCryptoServiceAvailable = true

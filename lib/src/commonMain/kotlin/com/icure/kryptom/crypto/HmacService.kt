@@ -5,7 +5,7 @@ interface HmacService {
 	 * Generates a new hmac key for a specific algorithm.
 	 *
 	 * @param algorithm the [HmacAlgorithm].
-	 * @param keySize the key size. If null (default behaviour), [HmacAlgorithm.recommendedKeySize] will be used.
+	 * @param keySize the key size, in bytes. If null (default behaviour), [HmacAlgorithm.recommendedKeySize] will be used.
 	 * Note: for security reasons, the key size cannot be less than [HmacAlgorithm.minimumKeySize]
 	 * @throws IllegalArgumentException if [keySize] is less than [HmacAlgorithm.minimumKeySize]
 	 */

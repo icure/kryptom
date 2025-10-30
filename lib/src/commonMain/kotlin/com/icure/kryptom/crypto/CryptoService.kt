@@ -6,6 +6,12 @@ package com.icure.kryptom.crypto
 expect val defaultCryptoService: CryptoService
 
 /**
+ * If the default crypto service for the current platform is available.
+ * If false using defaultCryptoService may throw for some or all the methods.
+ */
+expect val defaultCryptoServiceAvailable: Boolean
+
+/**
  * Interface which provides cryptographic functions.
  */
 interface CryptoService {

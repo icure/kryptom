@@ -7,3 +7,5 @@ actual val defaultCryptoService: CryptoService = object : CryptoService {
 	override val digest: DigestService get() = OpensslDigestService
 	override val hmac: HmacService get() = OpensslHmacService
 }
+
+actual val defaultCryptoServiceAvailable = true
