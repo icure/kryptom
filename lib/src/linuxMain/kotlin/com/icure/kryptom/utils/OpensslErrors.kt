@@ -36,7 +36,7 @@ object OpensslErrorHandling {
             }
             if (ERR_peek_error() != 0.toULong()) {
                 append("error_queue:\n")
-                append(writingToBio { ERR_print_errors(it) }.decodeToString().takeWhile { it.code != 0 })
+                append(writingToBio(false) { ERR_print_errors(it) }.decodeToString().takeWhile { it.code != 0 })
             }
         }
         throw PlatformMethodException(

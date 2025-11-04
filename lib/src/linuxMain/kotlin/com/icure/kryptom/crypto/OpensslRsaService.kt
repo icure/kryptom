@@ -1,6 +1,5 @@
 package com.icure.kryptom.crypto
 
-import com.icure.kryptom.crypto.OpensslRsaService.use
 import com.icure.kryptom.crypto.asn.pkcs8PrivateToSpkiPublic
 import com.icure.kryptom.crypto.asn.toAsn1
 import com.icure.kryptom.utils.OpensslErrorHandling
@@ -20,16 +19,9 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import libcrypto.BIO
-import libcrypto.BIO_CTRL_INFO
-import libcrypto.BIO_ctrl
-import libcrypto.BIO_free_all
-import libcrypto.BIO_new
-import libcrypto.BIO_s_mem
-import libcrypto.BIO_write_ex
+import libcrypto.BN_free
 import libcrypto.BN_new
 import libcrypto.BN_set_word
 import libcrypto.ERR_clear_error
@@ -48,8 +40,8 @@ import libcrypto.EVP_PKEY_CTX
 import libcrypto.EVP_PKEY_CTX_free
 import libcrypto.EVP_PKEY_CTX_new
 import libcrypto.EVP_PKEY_CTX_new_id
+import libcrypto.EVP_PKEY_CTX_set1_rsa_keygen_pubexp
 import libcrypto.EVP_PKEY_CTX_set_rsa_keygen_bits
-import libcrypto.EVP_PKEY_CTX_set_rsa_keygen_pubexp
 import libcrypto.EVP_PKEY_CTX_set_rsa_oaep_md
 import libcrypto.EVP_PKEY_CTX_set_rsa_padding
 import libcrypto.EVP_PKEY_RSA
@@ -92,7 +84,7 @@ object OpensslRsaService : RsaService {
                 EVP_PKEY_keygen_init(ctx).ensureEvpSuccess("EVP_PKEY_keygen_init")
                 EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, keySize.bitSize).ensureEvpSuccess("EVP_PKEY_CTX_set_rsa_keygen_bits")
                 BN_set_word(e, RSA_F4.toULong()).ensureEvpSuccess("BN_set_word") // 65537
-                EVP_PKEY_CTX_set_rsa_keygen_pubexp(ctx, e).ensureEvpSuccess("EVP_PKEY_CTX_set_rsa_keygen_pubexp")
+                EVP_PKEY_CTX_set1_rsa_keygen_pubexp(ctx, e).ensureEvpSuccess("EVP_PKEY_CTX_set1_rsa_keygen_pubexp")
                 EVP_PKEY_generate(ctx, keyPtr.ptr).ensureEvpSuccess("EVP_PKEY_generate")
                 RsaKeypair(
                     PrivateRsaKey(
@@ -105,14 +97,15 @@ object OpensslRsaService : RsaService {
                     )
                 )
             } finally {
-                EVP_PKEY_CTX_free(ctx) // Also frees up e (no need to do BN_free(e))
+                EVP_PKEY_CTX_free(ctx)
+                BN_free(e)
                 if (keyPtr.value != null) EVP_PKEY_free(keyPtr.value)
             }
         }
 
     private fun getPemPkcs8Bytes(
         key: CPointerVar<EVP_PKEY>
-    ): ByteArray = writingToBio {
+    ): ByteArray = writingToBio(true) {
         PEM_write_bio_PKCS8PrivateKey(
             it,
             key.value,
@@ -126,7 +119,7 @@ object OpensslRsaService : RsaService {
 
     private fun getPemSpkiBytes(
         key: CPointerVar<EVP_PKEY>
-    ): ByteArray = writingToBio {
+    ): ByteArray = writingToBio(true) {
         PEM_write_bio_PUBKEY(it, key.value)
     }
 
