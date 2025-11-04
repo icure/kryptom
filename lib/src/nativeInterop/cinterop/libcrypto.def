@@ -8,5 +8,6 @@ headers = \
     openssl/pem.h \
     openssl/err.h
 linkerOpts = -lcrypto
-# https://github.com/whyoleg/cryptography-kotlin/blob/b6b6904c7e7772c088822ba1740b8fe9e5ea5fb3/cryptography-providers/openssl3/api/src/commonMain/cinterop/declarations.def#L4
+# Additional methods for noStringConversion at https://github.com/whyoleg/cryptography-kotlin/blob/b6b6904c7e7772c088822ba1740b8fe9e5ea5fb3/cryptography-providers/openssl3/api/src/commonMain/cinterop/declarations.def#L4
 noStringConversion = OSSL_PARAM_construct_utf8_string
+compilerOpts = -DOPENSSL_NO_DEPRECATED
