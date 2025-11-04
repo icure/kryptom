@@ -11,6 +11,7 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import libcrypto.BIO
@@ -18,8 +19,9 @@ import libcrypto.BIO_CTRL_INFO
 import libcrypto.BIO_ctrl
 import libcrypto.BIO_free_all
 import libcrypto.BIO_new
+import libcrypto.BIO_new_mem_buf
 import libcrypto.BIO_s_mem
-import libcrypto.BIO_write_ex
+import libcrypto.BIO_s_secmem
 
 /**
  * Initializes a bio, executes a lambda that writes something to that bio, then creates a kotlin byte array with the
@@ -27,9 +29,10 @@ import libcrypto.BIO_write_ex
  */
 @OptIn(ExperimentalForeignApi::class)
 fun writingToBio(
+    secure: Boolean,
     writeToBio: (bio: CPointer<BIO>) -> Unit
 ): ByteArray = memScoped {
-    val bio = BIO_new(BIO_s_mem()) ?: throw PlatformMethodException("Could not initialise bio", null)
+    val bio = BIO_new(if (secure) BIO_s_secmem() else BIO_s_mem()) ?: throw PlatformMethodException("Could not initialise bio", null)
     val bioDataStart = alloc<CPointerVar<ByteVar>>()
     try {
         writeToBio(bio)
@@ -56,15 +59,8 @@ fun <T> readingFromBio(
     readFromBio: (readFromBio: CPointer<BIO>) -> T
 ): T = memScoped {
     data.usePinned {
-        val written = alloc<ULongVar>()
-        val bio = BIO_new(BIO_s_mem()) ?: throw PlatformMethodException("Could not initialise bio", null)
+        val bio = BIO_new_mem_buf(it.addressOf(0), data.size) ?: throw PlatformMethodException("Could not initialise bio", null)
         try {
-            BIO_write_ex(bio, it.addressOf(0), data.size.toULong(), written.ptr).ensureEvpSuccess(
-                "BIO_write_ex"
-            )
-            check(written.value.toInt() == data.size) {
-                "Written bytes and data size differ (written: ${written.value}, data size: ${data.size})"
-            }
             readFromBio(bio)
         } finally {
             BIO_free_all(bio)

@@ -1,6 +1,5 @@
 package com.icure.kryptom.crypto
 
-import com.icure.kryptom.crypto.OpensslRsaService.use
 import com.icure.kryptom.crypto.asn.pkcs8PrivateToSpkiPublic
 import com.icure.kryptom.crypto.asn.toAsn1
 import com.icure.kryptom.utils.OpensslErrorHandling
@@ -20,16 +19,8 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import libcrypto.BIO
-import libcrypto.BIO_CTRL_INFO
-import libcrypto.BIO_ctrl
-import libcrypto.BIO_free_all
-import libcrypto.BIO_new
-import libcrypto.BIO_s_mem
-import libcrypto.BIO_write_ex
 import libcrypto.BN_new
 import libcrypto.BN_set_word
 import libcrypto.ERR_clear_error
@@ -112,7 +103,7 @@ object OpensslRsaService : RsaService {
 
     private fun getPemPkcs8Bytes(
         key: CPointerVar<EVP_PKEY>
-    ): ByteArray = writingToBio {
+    ): ByteArray = writingToBio(true) {
         PEM_write_bio_PKCS8PrivateKey(
             it,
             key.value,
@@ -126,7 +117,7 @@ object OpensslRsaService : RsaService {
 
     private fun getPemSpkiBytes(
         key: CPointerVar<EVP_PKEY>
-    ): ByteArray = writingToBio {
+    ): ByteArray = writingToBio(true) {
         PEM_write_bio_PUBKEY(it, key.value)
     }
 
