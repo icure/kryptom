@@ -63,9 +63,8 @@ object OpensslHmacService : HmacService {
             val outLength = alloc(0.toULong())
             // For a DSL to setup OSSL_PARAM can check https://github.com/whyoleg/cryptography-kotlin/blob/28457b8e16111b45ba55d708fda3939260932003/cryptography-providers/openssl3/api/src/commonMain/kotlin/internal/arrays.kt#L1-L27
             val params = allocArray<OSSL_PARAM>(2)
-            OSSL_PARAM_construct_utf8_string(null, digestName.cstr.ptr, digestName.length.toULong()).place(params[0].ptr)
+            OSSL_PARAM_construct_utf8_string("digest".cstr.ptr, digestName.cstr.ptr, digestName.length.toULong()).place(params[0].ptr)
             OSSL_PARAM_construct_end().place(params[1].ptr)
-            interpretCPointer<OSSL_PARAM>(params[0].ptr.rawValue)!!.pointed.key = "digest".cstr.ptr // TODO Should be able to set it in OSSL_PARAM_construct_utf8_string, but passing a normal string doesn't work, and kotlin doesn't compile if passing cstr.ptr
             try {
                 EVP_MAC_init(ctx, rawKey.addressOf(0), key.rawKey.size.toULong(), params).ensureEvpSuccess("EVP_MAC_init")
                 EVP_MAC_update(ctx, pinnedData.addressOf(0), data.size.toULong())
