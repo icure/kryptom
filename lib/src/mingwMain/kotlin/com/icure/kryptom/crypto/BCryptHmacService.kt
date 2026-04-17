@@ -28,7 +28,7 @@ object BCryptHmacService : HmacService {
             "Invalid key size for $algorithm. A minimal length of ${algorithm.minimumKeySize} is required"
         }
         return HmacKey(
-            BCryptStrongRandom.randomBytes(algorithm.recommendedKeySize),
+            BCryptStrongRandom.randomBytes(keySize ?: algorithm.recommendedKeySize),
             algorithm
         )
     }
