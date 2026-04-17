@@ -9,7 +9,7 @@ fun PluginDependenciesSpecScope.kotest(apply: Boolean = true) {
 }
 
 fun PluginDependenciesSpecScope.androidLibrary(apply: Boolean = true) {
-	id("com.android.library").apply(apply)
+	id("com.android.kotlin.multiplatform.library").apply(apply)
 }
 
 fun PluginDependenciesSpecScope.ksp(apply: Boolean = true) {

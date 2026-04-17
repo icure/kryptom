@@ -27,6 +27,7 @@ val localProperties = Properties().apply {
 	}
 }
 
+
 kotlin {
 	val frameworkName = "Kryptom"
 	val xcf = XCFramework(frameworkName)
@@ -49,12 +50,8 @@ kotlin {
 		binaries.library()
 		generateTypeScriptDefinitions()
 	}
-	androidTarget {
-		compilerOptions {
-			jvmTarget.set(JvmTarget.JVM_1_8)
-		}
-		// Important: otherwise android will use the jvm library and it will not work...
-		publishLibraryVariants("release", "debug")
+	android {
+		configureAndroidLibrary()
 	}
 	val iosSimulators = listOf(
 		iosX64(),
@@ -72,7 +69,6 @@ kotlin {
 			(localProperties["ios.simulator"] as? String)?.let { testRun.deviceId = it }
 		}
 	}
-	macosX64()
 	macosArm64()
 	val linux64Target = linuxX64()
 	val linuxArmTarget = linuxArm64()
@@ -80,9 +76,9 @@ kotlin {
 		linuxArmTarget,
 		linux64Target
 	).forEach { target ->
-		target.compilations.getByName("main") {
+		target.compilations.named("main") {
 			cinterops {
-				val libcrypto by creating {
+				val libcrypto by registering {
 					definitionFile = project.file("src/nativeInterop/cinterop/libcrypto.def")
 					localProperties["cinteropsIncludeDir"]?.also {
 						compilerOpts += "-I$it"
@@ -116,30 +112,22 @@ kotlin {
 	}
 
 	sourceSets {
-		val commonMain by getting {
-			dependencies {
-				implementation(libs.kotlinIo)
-			}
+		commonMain.dependencies {
+			implementation(libs.kotlinIo)
 		}
-		val commonTest by getting {
-			dependencies {
-				implementation(libs.kotestAssertions)
-				implementation(libs.kotestEngine)
-				implementation(kotlin("test-common"))
-				implementation(kotlin("test-annotations-common"))
-			}
+		commonTest.dependencies {
+			implementation(libs.kotestAssertions)
+			implementation(libs.kotestEngine)
+			implementation(kotlin("test-common"))
+			implementation(kotlin("test-annotations-common"))
 		}
-		val jvmMain by getting {
-			dependencies {
-				implementation(libs.bouncyCastle)
-			}
+		jvmMain.dependencies {
+			implementation(libs.bouncyCastle)
 		}
-		val jvmTest by getting {
-			dependencies {
-				implementation(libs.kotestRunnerJunit)
-			}
+		jvmTest.dependencies{
+			implementation(libs.kotestRunnerJunit)
 		}
-		val jsMain by getting {
+		jsMain.apply {
 			languageSettings {
 				optIn("kotlin.js.ExperimentalJsExport")
 			}
@@ -147,23 +135,16 @@ kotlin {
 				implementation(libs.kotlinCoroutines)
 			}
 		}
-		val androidMain by getting {
-			dependencies {
-				implementation(libs.bouncyCastle)
-			}
+		androidMain.dependencies {
+			implementation(libs.bouncyCastle)
 		}
-		val androidUnitTest by getting {
+		val androidHostTest by getting {
 			dependencies {
 				implementation(libs.kotestRunnerJunit)
 			}
 		}
 		optInApple("kotlinx.cinterop.ExperimentalForeignApi", "kotlinx.cinterop.BetaInteropApi")
 	}
-}
-
-android {
-	namespace = "com.icure.kryptom"
-	configureAndroidLibrary()
 }
 
 configureJvmTest()

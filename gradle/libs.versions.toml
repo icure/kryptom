@@ -1,18 +1,18 @@
 [versions]
-kotlin = "2.2.20"
-kotest = "6.0.3"
-androidLibrary = "8.2.2"
-bouncyCastle = "1.82"
-kotlinIo = "0.8.0"
+kotlin = "2.3.20"
+kotest = "6.1.11"
+androidLibrary = "9.1.1"
+bouncyCastle = "1.84"
+kotlinIo = "0.9.0"
 kotlinCoroutines = "1.10.2"
-ksp = "2.2.20-2.0.3"
+ksp = "2.3.6"
 
 [libraries]
 
 # Gradle plugins
 kotlinMultiplatformPlugin = { group = "org.jetbrains.kotlin.multiplatform", name = "org.jetbrains.kotlin.multiplatform.gradle.plugin", version.ref = "kotlin" }
 kotestPlugin = { group = "io.kotest", name = "io.kotest.gradle.plugin", version.ref = "kotest" }
-androidLibraryPlugin = { group = "com.android.library", name = "com.android.library.gradle.plugin", version.ref = "androidLibrary" }
+androidLibraryPlugin = { group = "com.android.kotlin.multiplatform.library", name = "com.android.kotlin.multiplatform.library.gradle.plugin", version.ref = "androidLibrary" }
 kspPlugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 
 # Kotest

@@ -1,8 +1,18 @@
 import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.withType
 import org.gradle.api.Project
 
-fun Project.configureJvmTest() = tasks.named<Test>("jvmTest") {
+fun Project.configureJvmTest() {
+	tasks.named<Test>("jvmTest") {
+		doConfigureJvmTest()
+	}
+	tasks.withType<Test>().matching { it.name.contains("HostTest") }.configureEach {
+		doConfigureJvmTest()
+	}
+}
+
+private fun Test.doConfigureJvmTest() {
 	useJUnitPlatform()
 	filter {
 		isFailOnNoMatchingTests = false
