@@ -1,8 +1,8 @@
 package com.icure.kryptom.crypto
 
 import com.icure.kryptom.js.jsCrypto
-import com.icure.kryptom.js.toArrayBuffer
-import com.icure.kryptom.js.toByteArray
+import com.icure.kryptom.js.asArrayBuffer
+import com.icure.kryptom.js.asByteArray
 import kotlinx.coroutines.await
 import org.khronos.webgl.ArrayBuffer
 import kotlin.js.json
@@ -37,13 +37,13 @@ object JsAesService : AesService {
 
 
 	override suspend fun exportKey(key: AesKey<*>): ByteArray =
-		(jsCrypto.subtle.exportKey(RAW, key.cryptoKey).await() as ArrayBuffer).toByteArray()
+		(jsCrypto.subtle.exportKey(RAW, key.cryptoKey).await() as ArrayBuffer).asByteArray()
 
 	override suspend fun <A : AesAlgorithm> loadKey(algorithm: A, bytes: ByteArray): AesKey<A> =
 		AesKey(
 			jsCrypto.subtle.importKey(
 				RAW,
-				bytes.toArrayBuffer(),
+				bytes.asArrayBuffer(),
 				loadKeyParams(algorithm),
 				true,
 				USAGES
@@ -54,18 +54,18 @@ object JsAesService : AesService {
 	override suspend fun encrypt(data: ByteArray, key: AesKey<*>, iv: ByteArray?): ByteArray {
 		val generatedIv = iv ?: JsStrongRandom.randomBytes(16)
 		val encrypted = jsCrypto.subtle.encrypt(
-			encryptionParam(key.algorithm, generatedIv.toArrayBuffer()),
+			encryptionParam(key.algorithm, generatedIv.asArrayBuffer()),
 			key.cryptoKey,
-			data.toArrayBuffer()
+			data.asArrayBuffer()
 		).await()
-		return generatedIv + encrypted.toByteArray()
+		return generatedIv + encrypted.asByteArray()
 	}
 
 	override suspend fun decrypt(ivAndEncryptedData: ByteArray, key: AesKey<*>): ByteArray {
-		val buffer = ivAndEncryptedData.toArrayBuffer()
+		val buffer = ivAndEncryptedData.asArrayBuffer()
 		val iv = buffer.slice(0, AesService.IV_BYTE_LENGTH)
 		val data = buffer.slice(AesService.IV_BYTE_LENGTH)
-		return jsCrypto.subtle.decrypt(encryptionParam(key.algorithm, iv), key.cryptoKey, data).await().toByteArray()
+		return jsCrypto.subtle.decrypt(encryptionParam(key.algorithm, iv), key.cryptoKey, data).await().asByteArray()
 	}
 
 	private fun encryptionParam(algorithm: AesAlgorithm, iv: ArrayBuffer) = json(

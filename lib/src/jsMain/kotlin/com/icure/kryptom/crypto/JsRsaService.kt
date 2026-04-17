@@ -2,8 +2,8 @@ package com.icure.kryptom.crypto
 
 import com.icure.kryptom.js.jsCrypto
 import com.icure.kryptom.js.parsingDynamic
-import com.icure.kryptom.js.toArrayBuffer
-import com.icure.kryptom.js.toByteArray
+import com.icure.kryptom.js.asArrayBuffer
+import com.icure.kryptom.js.asByteArray
 import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.coroutines.await
 import org.khronos.webgl.ArrayBuffer
@@ -34,11 +34,11 @@ object JsRsaService : RsaService {
 	}
 
 	override suspend fun exportPrivateKeyPkcs8(key: PrivateRsaKey<*>): ByteArray {
-		return (jsCrypto.subtle.exportKey("pkcs8", key.key).await() as ArrayBuffer).toByteArray()
+		return (jsCrypto.subtle.exportKey("pkcs8", key.key).await() as ArrayBuffer).asByteArray()
 	}
 
 	override suspend fun exportPublicKeySpki(key: PublicRsaKey<*>): ByteArray {
-		return (jsCrypto.subtle.exportKey("spki", key.key).await() as ArrayBuffer).toByteArray()
+		return (jsCrypto.subtle.exportKey("spki", key.key).await() as ArrayBuffer).asByteArray()
 	}
 
 	override suspend fun <A : RsaAlgorithm> loadKeyPairPkcs8(algorithm: A, privateKeyPkcs8: ByteArray): RsaKeypair<A> {
@@ -80,7 +80,7 @@ object JsRsaService : RsaService {
 		val params = importAlgorithmParams(algorithm)
 		return jsCrypto.subtle.importKey(
 			"pkcs8",
-			privateKeyPkcs8.toArrayBuffer(),
+			privateKeyPkcs8.asArrayBuffer(),
 			params,
 			true,
 			privateKeyUses(algorithm)
@@ -90,7 +90,7 @@ object JsRsaService : RsaService {
 	override suspend fun <A : RsaAlgorithm> loadPublicKeySpki(algorithm: A, publicKeySpki: ByteArray): PublicRsaKey<A> {
 		val rawPublicKey = jsCrypto.subtle.importKey(
 			"spki",
-			publicKeySpki,
+			publicKeySpki.asArrayBuffer(),
 			importAlgorithmParams(algorithm),
 			true,
 			publicKeyUses(algorithm)
@@ -105,8 +105,8 @@ object JsRsaService : RsaService {
 		jsCrypto.subtle.encrypt(
 			encryptionAlgorithmParams(publicKey.algorithm),
 			publicKey.key,
-			data.toArrayBuffer()
-		).await().toByteArray()
+			data.asArrayBuffer()
+		).await().asByteArray()
 
 	override suspend fun decrypt(
 		data: ByteArray,
@@ -115,8 +115,8 @@ object JsRsaService : RsaService {
 		jsCrypto.subtle.decrypt(
 			encryptionAlgorithmParams(privateKey.algorithm),
 			privateKey.key,
-			data.toArrayBuffer()
-		).await().toByteArray()
+			data.asArrayBuffer()
+		).await().asByteArray()
 
 	override suspend fun sign(
 		data: ByteArray,
@@ -125,8 +125,8 @@ object JsRsaService : RsaService {
 		jsCrypto.subtle.sign(
 			signatureAlgorithmParams(privateKey.algorithm),
 			privateKey.key,
-			data.toArrayBuffer()
-		).await().toByteArray()
+			data.asArrayBuffer()
+		).await().asByteArray()
 
 	override suspend fun verifySignature(
 		signature: ByteArray,
@@ -136,8 +136,8 @@ object JsRsaService : RsaService {
 		jsCrypto.subtle.verify(
 			signatureAlgorithmParams(publicKey.algorithm),
 			publicKey.key,
-			signature.toArrayBuffer(),
-			data.toArrayBuffer()
+			signature.asArrayBuffer(),
+			data.asArrayBuffer()
 		).await()
 
 	private fun keyGenParams(keySize: RsaService.KeySize, algorithm: RsaAlgorithm) = json(

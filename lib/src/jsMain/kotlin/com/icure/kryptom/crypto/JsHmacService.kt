@@ -1,8 +1,8 @@
 package com.icure.kryptom.crypto
 
 import com.icure.kryptom.js.jsCrypto
-import com.icure.kryptom.js.toArrayBuffer
-import com.icure.kryptom.js.toByteArray
+import com.icure.kryptom.js.asArrayBuffer
+import com.icure.kryptom.js.asByteArray
 import kotlinx.coroutines.await
 import org.khronos.webgl.ArrayBuffer
 import kotlin.js.json
@@ -39,7 +39,7 @@ object JsHmacService : HmacService {
 	}
 
 	override suspend fun exportKey(key: HmacKey<*>): ByteArray =
-		exportRawKey(key.key).toByteArray()
+		exportRawKey(key.key).asByteArray()
 
 	private suspend fun exportRawKey(rawKey: dynamic) =
 		jsCrypto.subtle.exportKey(RAW, rawKey).await() as ArrayBuffer
@@ -51,7 +51,7 @@ object JsHmacService : HmacService {
 		return HmacKey(
 			jsCrypto.subtle.importKey(
 				RAW,
-				bytes.toArrayBuffer(),
+				bytes.asArrayBuffer(),
 				paramsForAlgorithm(algorithm, bytes.size),
 				true,
 				arrayOf("sign", "verify")
@@ -65,8 +65,8 @@ object JsHmacService : HmacService {
 		return jsCrypto.subtle.sign(
 			paramsForAlgorithm(key.algorithm, key.keySize),
 			key.key,
-			data.toArrayBuffer()
-		).await().toByteArray()
+			data.asArrayBuffer()
+		).await().asByteArray()
 	}
 
 	override suspend fun verify(
@@ -77,8 +77,8 @@ object JsHmacService : HmacService {
 		return jsCrypto.subtle.verify(
 			paramsForAlgorithm(key.algorithm, key.keySize),
 			key.key,
-			signature.toArrayBuffer(),
-			data.toArrayBuffer()
+			signature.asArrayBuffer(),
+			data.asArrayBuffer()
 		).await()
 	}
 }
