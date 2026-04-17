@@ -19,7 +19,7 @@ val repoUsername: String by project
 val repoPassword: String by project
 val mavenReleasesRepository: String by project
 
-project.version = "1.4.0"
+project.version = "1.5.0"
 
 val localProperties = Properties().apply {
 	kotlin.runCatching {
