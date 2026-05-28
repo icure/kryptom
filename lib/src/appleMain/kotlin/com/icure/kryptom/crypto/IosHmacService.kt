@@ -6,6 +6,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.refTo
 import platform.CoreCrypto.CCHmac
+import platform.CoreCrypto.kCCHmacAlgSHA1
 import platform.CoreCrypto.kCCHmacAlgSHA256
 import platform.CoreCrypto.kCCHmacAlgSHA512
 
@@ -29,9 +30,6 @@ object IosHmacService : HmacService {
 	}
 
 	override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray {
-		require(key.algorithm == HmacAlgorithm.HmacSha512 || key.algorithm == HmacAlgorithm.HmacSha256) {
-			"Unsupported hmac algorithm: ${key.algorithm}"
-		}
 		return memScoped {
 			val out = allocArray<UByteVar>(key.algorithm.digestSize)
 			CCHmac(
@@ -57,5 +55,6 @@ object IosHmacService : HmacService {
 	private val HmacAlgorithm.coreCryptoAlgorithm: UInt get() = when (this) {
 		HmacAlgorithm.HmacSha512 -> kCCHmacAlgSHA512
 		HmacAlgorithm.HmacSha256 -> kCCHmacAlgSHA256
+		HmacAlgorithm.HmacSha1 -> kCCHmacAlgSHA1
 	}
 }

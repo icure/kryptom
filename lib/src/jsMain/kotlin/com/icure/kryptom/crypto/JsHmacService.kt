@@ -17,6 +17,7 @@ object JsHmacService : HmacService {
 			"hash" to when (algorithm) {
 				HmacAlgorithm.HmacSha512 -> "SHA-512"
 				HmacAlgorithm.HmacSha256 -> "SHA-256"
+				HmacAlgorithm.HmacSha1 -> "SHA-1"
 			},
 			"length" to keySize * 8
 		)

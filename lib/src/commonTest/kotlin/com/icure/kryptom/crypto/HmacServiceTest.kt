@@ -16,12 +16,17 @@ private val keys = mapOf<HmacAlgorithm, List<String>>(
 	HmacAlgorithm.HmacSha256 to listOf(
 		"avqBDjVyWAUN9rAf3I+dKvD0kZ6lXHrZggexsk4+x8NwYq7ig1/BRfZhLJThQnRK4ZeUHNZ2uj+KiY75GgHv7A==",
 		"Gp6MlgtH4CN0Esif3lQGk8VHt6p3PRqiIcUQIcbrWv/eGqQCotWCpm065iNM5luH2BaAjow1gCo637Zt00vvjA=="
+	),
+	HmacAlgorithm.HmacSha1 to listOf(
+		"AAMGCQwPEhUYGx4hJCcqLTAzNjk8P0JFSEtOUVRXWl1gY2ZpbG9ydXh7foGEh4qNkJOWmZyfoqWoq66xtLe6vQ==",
+		"AAcOFRwjKjE4P0ZNVFtiaXB3foWMk5qhqK+2vcTL0tng5+71/AMKERgfJi00O0JJUFdeZWxzeoGIj5adpKuyuQ=="
 	)
 )
 
 private val shortKeys = mapOf<HmacAlgorithm, String>(
 	HmacAlgorithm.HmacSha512 to "qftdnQyVIbK7MbJfBpQHRkGX7FSI+ilwuIPLt9M9ycWPYbDvJZsneEpbYTpMZRpoYR+A53O99LyhQAlJfZ4a",
-	HmacAlgorithm.HmacSha256 to "anX77NJQoWlJl8TogLQqGaxK7tIwj134BEB3Ws/rqA=="
+	HmacAlgorithm.HmacSha256 to "anX77NJQoWlJl8TogLQqGaxK7tIwj134BEB3Ws/rqA==",
+	HmacAlgorithm.HmacSha1 to "AAECAwQFBgcICQoLDA0ODxAREg=="
 )
 
 private val signatures = mapOf<HmacAlgorithm, List<Pair<Pair<Int, Int>, String>>>(
@@ -52,6 +57,20 @@ private val signatures = mapOf<HmacAlgorithm, List<Pair<Pair<Int, Int>, String>>
 		Pair(3, 1) to "yt0nS9LoSSHhPqGitlNOaM6lYaaD0IQubyZFAf99RDM=",
 		Pair(4, 1) to "ns+3d+tOS5HW/Tz5s7CMGZBbdF7My7s0K0EFH7prgOc=",
 		Pair(5, 1) to "IkQt6zUUaGPShElalV8DSTjt3MfnWs1qdJ3kqQeom2I=",
+	),
+	HmacAlgorithm.HmacSha1 to listOf(
+		Pair(0, 0) to "5z8KuFIVLe2wXSGRrb5bZnNCJ40=",
+		Pair(1, 0) to "LR2DJ1GIrSeQgm6lVXcIMxZ5+zU=",
+		Pair(2, 0) to "wG56ee9AeXjdWt1Au/MlO+biH5Q=",
+		Pair(3, 0) to "TBrJRCpI89UijmviXqQh1Ii4c2c=",
+		Pair(4, 0) to "2j+bTvDKEcDYwAyc/pEnyaxNLSM=",
+		Pair(5, 0) to "eCuYSewPrMQ2vCGl3csDUIAI4E4=",
+		Pair(0, 1) to "r/Z4WddI+ZEC0WRjym5SjvRUA9w=",
+		Pair(1, 1) to "MjQyiWaiAvQ2mSyX6OZADjq/oDA=",
+		Pair(2, 1) to "5at39BMIVyyY7rqST4rH5rONQSg=",
+		Pair(3, 1) to "pBRpBArCr07ZlhrWZx34OtWFbJQ=",
+		Pair(4, 1) to "WwHKLYzqICjU4fGUIkXJLYDbEpc=",
+		Pair(5, 1) to "niJOgzqf7bEVtif2t804pqygfQI=",
 	)
 )
 
@@ -167,4 +186,5 @@ class HmacServiceTest : StringSpec({
 
 	doTest(HmacAlgorithm.HmacSha512)
 	doTest(HmacAlgorithm.HmacSha256)
+	doTest(HmacAlgorithm.HmacSha1)
 })

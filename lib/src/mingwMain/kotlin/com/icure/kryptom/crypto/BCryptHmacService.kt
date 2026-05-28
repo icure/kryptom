@@ -60,6 +60,11 @@ object BCryptHmacService : HmacService {
             flag = BCRYPT_ALG_HANDLE_HMAC_FLAG,
             block = block
         )
+        HmacAlgorithm.HmacSha1 -> withAlgorithmHandle(
+            BCryptAlgorithm.BCRYPT_SHA1_ALGORITHM,
+            flag = BCRYPT_ALG_HANDLE_HMAC_FLAG,
+            block = block
+        )
     }
 
     override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray = withAlgorithmHandle(key.algorithm) { algorithmHandle ->

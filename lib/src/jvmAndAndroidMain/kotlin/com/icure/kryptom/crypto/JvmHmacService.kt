@@ -9,6 +9,7 @@ object JvmHmacService : HmacService {
 		get() = when (this) {
 			HmacAlgorithm.HmacSha512 -> "HMac-SHA512"
 			HmacAlgorithm.HmacSha256 -> "HMac-SHA256"
+			HmacAlgorithm.HmacSha1 -> "HMac-SHA1"
 		}
 
 	override suspend fun <A : HmacAlgorithm> generateKey(algorithm: A, keySize: Int?): HmacKey<A> {

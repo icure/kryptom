@@ -234,10 +234,21 @@ sealed interface HmacAlgorithm {
 		override val identifier: String = Identifiers.HMAC_SHA_256
 	}
 
+	/**
+	 * Hmac with sha 1.
+	 */
+	data object HmacSha1 : HmacAlgorithm {
+		override val recommendedKeySize: Int = 64
+		override val minimumKeySize: Int = 20
+		override val digestSize: Int = 20
+		override val identifier: String = Identifiers.HMAC_SHA_1
+	}
+
 	companion object {
 		private object Identifiers {
 			const val HMAC_SHA_512 = "HmacSha512"
 			const val HMAC_SHA_256 = "HmacSha256"
+			const val HMAC_SHA_1 = "HmacSha1"
 		}
 
 		/**
@@ -250,6 +261,7 @@ sealed interface HmacAlgorithm {
 		fun fromIdentifier(identifier: String): HmacAlgorithm = when (identifier) {
 			Identifiers.HMAC_SHA_512 -> HmacSha512
 			Identifiers.HMAC_SHA_256 -> HmacSha256
+			Identifiers.HMAC_SHA_1 -> HmacSha1
 			else -> throw IllegalArgumentException("Unknown hmac algorithm $identifier")
 		}
 	}

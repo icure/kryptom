@@ -47,6 +47,7 @@ object OpensslHmacService : HmacService {
     private fun digestNameForAlgorithm(alg: HmacAlgorithm) = when (alg) {
 		HmacAlgorithm.HmacSha256 -> "SHA-256"
 		HmacAlgorithm.HmacSha512 -> "SHA-512"
+		HmacAlgorithm.HmacSha1 -> "SHA-1"
 	}
 
     override suspend fun sign(data: ByteArray, key: HmacKey<*>): ByteArray = memScoped {
