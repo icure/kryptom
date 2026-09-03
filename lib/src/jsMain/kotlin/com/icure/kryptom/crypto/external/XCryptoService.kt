@@ -18,6 +18,8 @@ import com.icure.kryptom.crypto.RsaAlgorithm
 import com.icure.kryptom.crypto.RsaKeypair
 import com.icure.kryptom.crypto.RsaService
 import com.icure.kryptom.crypto.StrongRandom
+import com.icure.kryptom.crypto.ec.PureKotlinSecp160r1Service
+import com.icure.kryptom.crypto.ec.Secp160r1Service
 import com.icure.kryptom.utils.PlatformMethodException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -45,18 +47,30 @@ external interface PartialXCryptoService {
 	val rsa: PartialXRsaService
 	val strongRandom: PartialXStrongRandom
 	val hmac: XHmacService
+	/** Optional: when absent kryptom uses its pure-Kotlin secp160r1 implementation over [strongRandom]. */
+	val secp160r1: XSecp160r1Service?
 }
 
 external interface XCryptoService : PartialXCryptoService {
 	override val rsa: XRsaService
 	override val strongRandom: XStrongRandom
+	override val secp160r1: XSecp160r1Service
 }
 
 fun completePartialCryptoService(service: PartialXCryptoService): XCryptoService {
 	val fullRsa = completePartialRsa(service.rsa)
 	val fullStrongRandom = completePartialStrongRandom(service.strongRandom)
-	return js("{ aes: service.aes, digest: service.digest, rsa: fullRsa, strongRandom: fullStrongRandom, hmac: service.hmac }")
+	val fullSecp160r1 = completePartialSecp160r1(service.secp160r1, fullStrongRandom)
+	return js("{ aes: service.aes, digest: service.digest, rsa: fullRsa, strongRandom: fullStrongRandom, hmac: service.hmac, secp160r1: fullSecp160r1 }")
 }
+
+/**
+ * Uses the external secp160r1 service when the external implementation provides one, otherwise the pure-Kotlin
+ * implementation fed by the external random generator.
+ */
+fun completePartialSecp160r1(partialService: XSecp160r1Service?, strongRandom: XStrongRandom): XSecp160r1Service =
+	if (partialService != null) partialService
+	else XSecp160r1ServiceAdapter(PureKotlinSecp160r1Service(StrongRandomAdapter(strongRandom)))
 
 private inline fun <T> wrappingNativeExceptions(block: () -> T): T =
 	try {
@@ -83,6 +97,7 @@ private class ServiceAdapter(
 	override val rsa: RsaService = RsaServiceAdapter(service.rsa)
 	override val strongRandom: StrongRandom = StrongRandomAdapter(service.strongRandom)
 	override val hmac: HmacService = HmacServiceAdapter(service.hmac)
+	override val secp160r1: Secp160r1Service = Secp160r1ServiceAdapter(service.secp160r1)
 }
 
 private class XServiceAdapter(
@@ -93,6 +108,7 @@ private class XServiceAdapter(
 	override val rsa: XRsaService = XRsaServiceAdapter(service.rsa)
 	override val strongRandom: XStrongRandom = XStrongRandomAdapter(service.strongRandom)
 	override val hmac: XHmacService = XHmacServiceAdapter(service.hmac)
+	override val secp160r1: XSecp160r1Service = XSecp160r1ServiceAdapter(service.secp160r1)
 }
 
 private class AesServiceAdapter(
@@ -359,4 +375,43 @@ private class XStrongRandomAdapter(
 
 	override fun randomUUID(): String =
 		service.randomUUID()
+}
+
+private class Secp160r1ServiceAdapter(
+	private val service: XSecp160r1Service
+) : Secp160r1Service {
+	override suspend fun randomScalar(): ByteArray =
+		wrappingNativeExceptions { service.randomScalar().await() }
+
+	override suspend fun publicKeyX(scalar: ByteArray): ByteArray =
+		wrappingNativeExceptions { service.publicKeyX(scalar).await() }
+
+	override suspend fun isValidPublicKeyX(publicKeyX: ByteArray): Boolean =
+		wrappingNativeExceptions { service.isValidPublicKeyX(publicKeyX).await() }
+
+	override suspend fun ecdhX(scalar: ByteArray, peerPublicKeyX: ByteArray): ByteArray? =
+		wrappingNativeExceptions {
+			// An external implementation may resolve to undefined rather than null; normalise to null.
+			service.ecdhX(scalar, peerPublicKeyX).await().let { if (it == null) null else it }
+		}
+}
+
+private class XSecp160r1ServiceAdapter(
+	private val service: Secp160r1Service
+) : XSecp160r1Service {
+	override fun randomScalar(): Promise<ByteArray> = GlobalScope.promise {
+		service.randomScalar()
+	}
+
+	override fun publicKeyX(scalar: ByteArray): Promise<ByteArray> = GlobalScope.promise {
+		service.publicKeyX(scalar)
+	}
+
+	override fun isValidPublicKeyX(publicKeyX: ByteArray): Promise<Boolean> = GlobalScope.promise {
+		service.isValidPublicKeyX(publicKeyX)
+	}
+
+	override fun ecdhX(scalar: ByteArray, peerPublicKeyX: ByteArray): Promise<ByteArray?> = GlobalScope.promise {
+		service.ecdhX(scalar, peerPublicKeyX)
+	}
 }

@@ -6,7 +6,14 @@ Provides access from kotlin multiplatform to:
   - Aes encryption
   - Rsa encryption and signing
   - Hmac signing
-- Byte array encoding and decoding (hex, base64)
+  - Sha-256 / Sha-512 digests
+- Pure-Kotlin primitives shared by all platforms:
+  - x-only ECDH over secp160r1 (`CryptoService.secp160r1`), for short-lived secrets exchanged through codes a
+    human types. This curve offers about 80 bits of security: use it only with ephemeral keys and secrets that
+    expire within minutes (read the notes on `Secp160r1Service`).
+  - HKDF-SHA256 (`HkdfSha256`, RFC 5869)
+  - `constantTimeEquals` for comparing secret-derived bytes such as MAC tags
+- Byte array encoding and decoding (hex, base64, base32)
 
 ## Using the dependency
 
