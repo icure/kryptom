@@ -26,27 +26,10 @@ internal val jsCrypto: Crypto get() = checkNotNull(jsCryptoOrNull) {
 	""".trimIndent()
 }
 
-/**
- * Implementation based on
- * [ktor](https://github.com/ktorio/ktor/blob/8efb61fcc2/ktor-utils/js/src/io/ktor/util/CryptoJs.kt#L47)
- * Global instance of [Crypto].
- */
+
 private val jsCryptoOrNull: Crypto? by lazy {
-	val crypto = if (hasNodeApi()) {
-		//language=JavaScript
-		js("""
-			typeof crypto != 'undefined' 
-				? crypto
-				: typeof require != 'undefined'
-					? eval('require')('crypto')
-					: undefined
-		""")
-	} else {
-		//language=JavaScript
-		js("(window ? (window.crypto ? window.crypto : window.msCrypto) : self.crypto)")
-	}
-	// Note: crypto is dynamic, can't use takeIf
-	if (crypto?.subtle != null) crypto else null
+	val c = js("typeof globalThis !== 'undefined' ? globalThis.crypto : undefined")
+	if (c?.subtle != null) c.unsafeCast<Crypto>() else null
 }
 
 fun defaultJsCryptoAvailable(): Boolean =

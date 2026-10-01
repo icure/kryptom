@@ -49,6 +49,9 @@ kotlin {
 		useEsModules()
 		binaries.library()
 		generateTypeScriptDefinitions()
+		compilations["main"].packageJson {
+			customField("engines", mapOf("node" to ">=24"))
+		}
 	}
 	android {
 		configureAndroidLibrary()
