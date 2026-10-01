@@ -27,6 +27,10 @@ val localProperties = Properties().apply {
 	}
 }
 
+// Gradle property (-P, ORG_GRADLE_PROJECT_*, gradle.properties) if set, otherwise value from local.properties
+fun propertyOrLocal(name: String): String? =
+	project.findProperty(name)?.toString() ?: localProperties.getProperty(name)
+
 
 kotlin {
 	val frameworkName = "Kryptom"
@@ -153,13 +157,13 @@ kotlin {
 configureJvmTest()
 
 fun projectHasSignatureProperties() =
-	project.hasProperty("signing.keyId") && project.hasProperty("signing.secretKeyRingFile") && project.hasProperty("signing.password")
+	listOf("signing.keyId", "signing.secretKeyRingFile", "signing.password").all { propertyOrLocal(it) != null }
 
 if (projectHasSignatureProperties()) {
 	signing {
 		useInMemoryPgpKeys(
-			file(project.property("signing.secretKeyRingFile") as String).readText(),
-			project.property("signing.password") as String
+			file(propertyOrLocal("signing.secretKeyRingFile")!!).readText(),
+			propertyOrLocal("signing.password")!!
 		)
 		sign(publishing.publications)
 	}
@@ -207,6 +211,20 @@ mavenPublishing {
 
 	if (projectHasSignatureProperties()) {
 		signAllPublications()
+	}
+}
+
+// The vanniktech plugin reads mavenCentralUsername/mavenCentralPassword only through providers.gradleProperty,
+// which ignores local.properties: fall back to local.properties on its (internal) build service parameters.
+gradle.sharedServices.registrations.named("maven-central-build-service") {
+	val params = parameters
+	listOf("Username", "Password").forEach { suffix ->
+		@Suppress("UNCHECKED_CAST")
+		val credential = params.javaClass.getMethod("getRepository$suffix").invoke(params) as Property<String>
+		credential.set(
+			providers.gradleProperty("mavenCentral$suffix")
+				.orElse(provider { localProperties.getProperty("mavenCentral$suffix") })
+		)
 	}
 }
 
